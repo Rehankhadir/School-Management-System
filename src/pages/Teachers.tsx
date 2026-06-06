@@ -1,0 +1,179 @@
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { teachers as initialTeachers, Teacher, subjects as allSubjects } from '@/data/mockData';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Badge } from '@/components/ui/Badge';
+import { Avatar } from '@/components/ui/Avatar';
+import { SlideOver } from '@/components/ui/SlideOver';
+import { TableSkeleton } from '@/components/ui/Skeleton';
+import { motion } from 'framer-motion';
+import { Plus, Search, Pencil } from 'lucide-react';
+import { clsx } from 'clsx';
+
+export function TeachersPage() {
+  const { role } = useAuth();
+  const [teachersList, setTeachersList] = useState<Teacher[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [editTeacher, setEditTeacher] = useState<Teacher | null>(null);
+  const [form, setForm] = useState({
+    name: '', employeeId: '', subjects: [] as string[], classAssigned: '', qualification: '',
+    phone: '', email: '', joinDate: '', salary: 0,
+  });
+
+  useEffect(() => {
+    setTimeout(() => { setTeachersList([...initialTeachers]); setLoading(false); }, 600);
+  }, []);
+
+  const filtered = teachersList.filter(t =>
+    !search || t.name.toLowerCase().includes(search.toLowerCase()) || t.employeeId.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const openEdit = (t: Teacher) => {
+    setForm({ name: t.name, employeeId: t.employeeId, subjects: [...t.subjects], classAssigned: t.classAssigned, qualification: t.qualification, phone: t.phone, email: t.email, joinDate: t.joinDate, salary: t.salary });
+    setEditTeacher(t);
+    setShowForm(true);
+  };
+
+  const handleSave = () => {
+    if (editTeacher) {
+      setTeachersList(prev => prev.map(t => t.id === editTeacher.id ? { ...t, ...form, subjects: form.subjects } : t));
+    } else {
+      const newT: Teacher = { id: `t${Date.now()}`, ...form, status: 'Active' };
+      setTeachersList(prev => [newT, ...prev]);
+    }
+    setShowForm(false);
+    setEditTeacher(null);
+  };
+
+  return (
+    <>
+      <PageHeader
+        title="Teachers"
+        badge={<Badge variant="indigo">{filtered.length} teachers</Badge>}
+        actions={role === 'admin' && (
+          <button onClick={() => { setForm({ name: '', employeeId: '', subjects: [], classAssigned: '', qualification: '', phone: '', email: '', joinDate: '', salary: 0 }); setEditTeacher(null); setShowForm(true); }} className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 active:scale-95 transition-all">
+            <Plus className="w-4 h-4" /> Add Teacher
+          </button>
+        )}
+      />
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input type="text" placeholder="Search by name or employee ID..." value={search} onChange={e => setSearch(e.target.value)} className="w-full sm:w-80 pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="p-4"><TableSkeleton rows={5} cols={6} /></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Teacher</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Employee ID</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Subjects</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Class</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Phone</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((t, i) => (
+                  <tr key={t.id} className={clsx('border-b border-gray-50 hover:bg-indigo-50/50 transition-colors group', i % 2 === 1 && 'bg-gray-50/50')}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar name={t.name} size="sm" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{t.name}</p>
+                          <p className="text-xs text-gray-500">{t.qualification}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{t.employeeId}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {t.subjects.map(s => <Badge key={s} variant="info">{s}</Badge>)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{t.classAssigned}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{t.phone}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant={t.status === 'Active' ? 'success' : t.status === 'On Leave' ? 'warning' : 'danger'} showDot>{t.status}</Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                        {role === 'admin' && (
+                          <button onClick={() => openEdit(t)} className="p-1.5 rounded-lg hover:bg-amber-100 text-amber-600 transition-colors">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <SlideOver
+        isOpen={showForm}
+        onClose={() => { setShowForm(false); setEditTeacher(null); }}
+        title={editTeacher ? 'Edit Teacher' : 'Add Teacher'}
+        footer={
+          <div className="flex gap-3 justify-end">
+            <button onClick={() => { setShowForm(false); setEditTeacher(null); }} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50">Cancel</button>
+            <button onClick={handleSave} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 active:scale-95 transition-all">Save</button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Name</label>
+            <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Employee ID</label>
+            <input type="text" value={form.employeeId} onChange={e => setForm({...form, employeeId: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Subjects</label>
+            <div className="flex flex-wrap gap-2">
+              {allSubjects.map(s => (
+                <button key={s} type="button" onClick={() => setForm({...form, subjects: form.subjects.includes(s) ? form.subjects.filter(x => x !== s) : [...form.subjects, s]})}
+                  className={clsx('px-3 py-1 text-xs rounded-full border transition-colors', form.subjects.includes(s) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300')}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Class Assigned</label>
+            <input type="text" value={form.classAssigned} onChange={e => setForm({...form, classAssigned: e.target.value})} placeholder="e.g. 9A" className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Qualification</label>
+            <input type="text" value={form.qualification} onChange={e => setForm({...form, qualification: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Phone</label>
+              <input type="tel" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Salary (₹)</label>
+              <input type="number" value={form.salary} onChange={e => setForm({...form, salary: Number(e.target.value)})} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500" />
+            </div>
+          </div>
+        </div>
+      </SlideOver>
+    </>
+  );
+}
