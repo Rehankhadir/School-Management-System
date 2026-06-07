@@ -10,7 +10,7 @@ import {
   BookOpen, CalendarCheck, Clock
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { monthlyFeeCollection, weeklyAttendance, students, announcements } from '@/data/mockData';
+import { monthlyFeeCollection, weeklyAttendance, students, announcements, marks, fees, notifications, leaves, exams } from '@/data/mockData';
 import { useNavigate } from 'react-router-dom';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -162,23 +162,181 @@ function AdminDashboard() {
 }
 
 function TeacherDashboard() {
+  const { user } = useAuth();
+  const teachingStudents = students.filter((student) => ['9', '10'].includes(student.class));
+  const myLeaves = leaves.filter((leave) => leave.applicantId === user?.id && leave.applicantRole === 'Teacher' && leave.status !== 'Rejected');
+  const usedLeaveDays = myLeaves.reduce((sum, leave) => sum + leave.days, 0);
+  const maxLeaveDays = 18;
+  const remainingLeaveDays = Math.max(0, maxLeaveDays - usedLeaveDays);
+  const teacherAttendance = Math.max(70, 100 - usedLeaveDays * 1.5);
+
+  const studentSummaries = teachingStudents
+    .map((student) => {
+      const studentMarks = marks.filter((mark) => mark.studentId === student.id);
+      if (!studentMarks.length) return null;
+      const averageScore = studentMarks.reduce((sum, mark) => sum + (mark.scored / mark.maxMarks) * 100, 0) / studentMarks.length;
+      const lowSubjects = Array.from(new Set(studentMarks
+        .filter((mark) => (mark.scored / mark.maxMarks) * 100 < 60)
+        .map((mark) => mark.subject)
+      ));
+      const gradeBand = averageScore >= 90 ? 'A+' : averageScore >= 80 ? 'A' : averageScore >= 70 ? 'B' : averageScore >= 60 ? 'C' : averageScore >= 50 ? 'D' : 'F';
+      return { student, averageScore, lowSubjects, gradeBand };
+    })
+    .filter((entry): entry is { student: typeof students[number]; averageScore: number; lowSubjects: string[]; gradeBand: string } => entry !== null);
+
+  const classAverageScore = studentSummaries.length
+    ? studentSummaries.reduce((sum, entry) => sum + entry.averageScore, 0) / studentSummaries.length
+    : 0;
+
+  const belowTargetCount = studentSummaries.filter((entry) => entry.averageScore < 60).length;
+
+  const gradeDistribution = studentSummaries.reduce<Record<string, number>>((acc, entry) => {
+    acc[entry.gradeBand] = (acc[entry.gradeBand] || 0) + 1;
+    return acc;
+  }, {});
+
+  const weakSubjects = Object.entries(
+    marks
+      .filter((mark) => teachingStudents.some((student) => student.id === mark.studentId))
+      .reduce<Record<string, { total: number; count: number }>>((acc, mark) => {
+        const percent = (mark.scored / mark.maxMarks) * 100;
+        if (!acc[mark.subject]) acc[mark.subject] = { total: 0, count: 0 };
+        acc[mark.subject].total += percent;
+        acc[mark.subject].count += 1;
+        return acc;
+      }, {})
+  )
+    .map(([subject, data]) => ({ subject, avg: data.total / data.count }))
+    .sort((a, b) => a.avg - b.avg)
+    .slice(0, 3);
+
+  const lowAttendanceStudents = teachingStudents
+    .filter((student) => student.attendancePercent < 85)
+    .slice(0, 4);
+
+  const attentionStudents = studentSummaries
+    .filter((entry) => entry.averageScore < 60)
+    .sort((a, b) => a.averageScore - b.averageScore)
+    .slice(0, 5);
+
+  const recentAssessments = marks
+    .filter((mark) => teachingStudents.some((student) => student.id === mark.studentId))
+    .slice(-5)
+    .reverse();
+
+  const upcomingExams = exams
+    .filter((e) => teachingStudents.some((s) => s.class === e.class))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(0, 5)
+    .map((e) => `${e.name} - ${new Date(e.date).toLocaleDateString()}`);
+
   return (
     <>
       <PageHeader title="Dashboard" subtitle="Welcome back, Teacher!" />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
         <StatCard label="My Classes" value={3} icon={<BookOpen size={24} color="#4f46e5" />} iconBg="bg-indigo-100" delay={0} />
-        <StatCard label="Total Students" value={90} icon={<Users size={24} color="#059669" />} iconBg="bg-emerald-100" delay={1} />
-        <StatCard label="Avg Attendance" value={92} suffix="%" icon={<CalendarCheck size={24} color="#d97706" />} iconBg="bg-amber-100" delay={2} />
-        <StatCard label="Leave Balance" value={12} suffix=" days" icon={<Clock size={24} color="#9333ea" />} iconBg="bg-purple-100" delay={3} />
+        <StatCard label="Total Students" value={teachingStudents.length} icon={<Users size={24} color="#059669" />} iconBg="bg-emerald-100" delay={1} />
+        <StatCard label="Teacher Attendance" value={Math.round(teacherAttendance)} suffix="%" icon={<CalendarCheck size={24} color="#d97706" />} iconBg="bg-amber-100" delay={2} />
+        <StatCard label="Leaves Used" value={usedLeaveDays} suffix="days" icon={<Clock size={24} color="#9333ea" />} iconBg="bg-purple-100" delay={3} />
+        <StatCard label="Leaves Available" value={remainingLeaveDays} suffix="days" icon={<Clock size={24} color="#10b981" />} iconBg="bg-emerald-100" delay={4} />
       </div>
-      <div style={cardStyle}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>Today's Schedule</h3>
-        {['Period 1 - Mathematics (9A)', 'Period 2 - Mathematics (10B)', 'Period 5 - Mathematics (9A)', 'Period 8 - Free Period'].map((item, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', backgroundColor: '#f9fafb', borderRadius: 12, marginBottom: 8 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: '#e0e7ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f46e5', fontSize: 12, fontWeight: 700 }}>{i + 1}</div>
-            <span style={{ fontSize: 14, color: '#374151' }}>{item}</span>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 24, marginBottom: 24 }}>
+        <div style={cardStyle}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>Class Attendance Snapshot</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 6 }}>Average Attendance</div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: '#059669' }}>{Math.round(teachingStudents.reduce((sum, student) => sum + student.attendancePercent, 0) / teachingStudents.length)}%</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 6 }}>Low Attendance</div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: '#e11d48' }}>{lowAttendanceStudents.length}</div>
+            </div>
           </div>
-        ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {lowAttendanceStudents.map((student) => (
+              <div key={student.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 12, backgroundColor: '#f8fafc' }}>
+                <span style={{ fontSize: 13, color: '#374151' }}>{student.name}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#e11d48' }}>{student.attendancePercent}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={cardStyle}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>Weakest Subjects</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {weakSubjects.map((subject) => (
+              <div key={subject.subject} style={{ padding: '12px 14px', borderRadius: 14, border: '1px solid #f3f4f6', backgroundColor: '#fff7ed' }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{subject.subject}</div>
+                <div style={{ fontSize: 12, color: '#6b7280' }}>{subject.avg.toFixed(0)}% average score</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 24, marginBottom: 24 }}>
+        <div style={cardStyle}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>At-Risk Students</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {attentionStudents.length > 0 ? attentionStudents.map(({ student, averageScore, lowSubjects }) => (
+              <div key={student.id} style={{ padding: 14, borderRadius: 14, border: '1px solid #f3f4f6', backgroundColor: '#fef2f2' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{student.name}</div>
+                    <div style={{ fontSize: 12, color: '#6b7280' }}>Class {student.class}{student.section}</div>
+                  </div>
+                  <Badge variant="danger">{averageScore.toFixed(0)}%</Badge>
+                </div>
+                <div style={{ fontSize: 12, color: '#475569' }}>Needs support in: {lowSubjects.length ? lowSubjects.join(', ') : 'multiple subjects'}</div>
+              </div>
+            )) : (
+              <div style={{ padding: 16, borderRadius: 14, backgroundColor: '#f8fafc', color: '#475569' }}>No at-risk students detected in your current classes.</div>
+            )}
+          </div>
+        </div>
+
+        <div style={cardStyle}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>Grade Band Distribution</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {['A+', 'A', 'B', 'C', 'D', 'F'].map((band) => (
+              <div key={band} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderRadius: 12, backgroundColor: '#f8fafc' }}>
+                <span style={{ fontSize: 13, color: '#374151' }}>{band}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{gradeDistribution[band] || 0}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 24, marginBottom: 24 }}>
+        <div style={cardStyle}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>Upcoming Assessments</h3>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {upcomingExams.map((exam) => (
+              <div key={exam} style={{ padding: '12px 14px', borderRadius: 14, border: '1px solid #f3f4f6', backgroundColor: '#eff6ff' }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#1d4ed8' }}>{exam}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={cardStyle}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>Recent Assessment Results</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {recentAssessments.map((result, index) => (
+              <div key={`${result.studentId}-${index}`} style={{ padding: '12px 14px', borderRadius: 14, border: '1px solid #f3f4f6', backgroundColor: '#f8fafc' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{result.subject}</span>
+                  <span style={{ fontSize: 13, color: '#059669' }}>{result.scored}/{result.maxMarks}</span>
+                </div>
+                <div style={{ fontSize: 12, color: '#6b7280' }}>{result.exam} · {students.find((student) => student.id === result.studentId)?.name || 'Student'}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </>
   );
@@ -222,14 +380,108 @@ function StudentDashboard() {
 }
 
 function ParentDashboard() {
+  const { user } = useAuth();
+  const child = students.find((student) => student.guardianEmail === user?.email) || students[0];
+  const childMarks = marks.filter((mark) => mark.studentId === child.id);
+  const childAverage = childMarks.length
+    ? childMarks.reduce((sum, mark) => sum + (mark.scored / mark.maxMarks) * 100, 0) / childMarks.length
+    : 0;
+  const childFee = fees.find((fee) => fee.studentId === child.id);
+  const feeDue = childFee?.balance ?? 0;
+  const feeStatusLabel = childFee?.status ?? 'Unknown';
+  const childNotifications = notifications.filter((note) => note.forRole.includes('parent'));
+  const unreadNotifications = childNotifications.filter((note) => !note.read).length;
+  const recentGrades = childMarks
+    .sort((a, b) => (a.exam > b.exam ? 1 : -1))
+    .slice(-3)
+    .reverse();
+  const upcomingExams = exams
+    .filter((e) => e.class === child.class)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(0, 5)
+    .map((e) => `${e.name} - ${new Date(e.date).toLocaleDateString()}`);
+
   return (
     <>
       <PageHeader title="Dashboard" subtitle="Track your child's progress" />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-        <StatCard label="Child's Attendance" value={92} suffix="%" icon={<CalendarCheck size={24} color="#059669" />} iconBg="bg-emerald-100" delay={0} />
-        <StatCard label="Fee Status" value={40000} prefix="₹" icon={<DollarSign size={24} color="#d97706" />} iconBg="bg-amber-100" delay={1} />
-        <StatCard label="Class Rank" value={5} icon={<Users size={24} color="#4f46e5" />} iconBg="bg-indigo-100" delay={2} />
-        <StatCard label="Upcoming Events" value={3} icon={<CalendarCheck size={24} color="#9333ea" />} iconBg="bg-purple-100" delay={3} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
+        <StatCard label="Child's Attendance" value={child.attendancePercent} suffix="%" icon={<CalendarCheck size={24} color="#059669" />} iconBg="bg-emerald-100" delay={0} />
+        <StatCard label="Fee Due" value={feeDue} prefix="₹" icon={<DollarSign size={24} color="#d97706" />} iconBg="bg-amber-100" delay={1} />
+        <StatCard label="Avg Score" value={Math.round(childAverage)} suffix="%" icon={<GraduationCap size={24} color="#4f46e5" />} iconBg="bg-indigo-100" delay={2} />
+        <StatCard label="Unread Alerts" value={unreadNotifications} icon={<Megaphone size={24} color="#9333ea" />} iconBg="bg-purple-100" delay={3} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 24, marginBottom: 24 }}>
+        <div style={cardStyle}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>Child Summary</h3>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div style={{ padding: '14px 16px', borderRadius: 16, border: '1px solid #f3f4f6', backgroundColor: '#f8fafc' }}>
+              <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 6 }}>Name</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#111827' }}>{child.name}</div>
+              <div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>Class {child.class}{child.section}</div>
+            </div>
+            <div style={{ padding: '14px 16px', borderRadius: 16, border: '1px solid #f3f4f6', backgroundColor: '#fff7ed' }}>
+              <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 6 }}>Fee Status</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#111827' }}>{feeStatusLabel}</div>
+              <div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>Next due: {childFee?.dueDate ?? 'N/A'}</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={cardStyle}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>Performance Overview</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 13, color: '#374151' }}>Average score</span>
+              <span style={{ fontSize: 16, fontWeight: 600, color: '#4f46e5' }}>{Math.round(childAverage)}%</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 13, color: '#374151' }}>Next exam</span>
+              <span style={{ fontSize: 13, color: '#6b7280' }}>{upcomingExams[0]}</span>
+            </div>
+            <div style={{ padding: '12px 14px', borderRadius: 14, backgroundColor: '#eef2ff' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#1d4ed8' }}>Recent grades</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                {recentGrades.length ? recentGrades.map((grade, index) => (
+                  <div key={`${grade.studentId}-${index}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#334155' }}>
+                    <span>{grade.subject}</span>
+                    <span>{grade.scored}/{grade.maxMarks}</span>
+                  </div>
+                )) : (
+                  <div style={{ fontSize: 13, color: '#64748b' }}>No recent grades available.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 24 }}>
+        <div style={cardStyle}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>Upcoming Exams</h3>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {upcomingExams.map((exam) => (
+              <div key={exam} style={{ padding: '12px 14px', borderRadius: 14, border: '1px solid #f3f4f6', backgroundColor: '#eff6ff' }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#1d4ed8' }}>{exam}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={cardStyle}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>Parent Notifications</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {childNotifications.slice(0, 4).map((note) => (
+              <div key={note.id} style={{ padding: '12px 14px', borderRadius: 14, border: '1px solid #f3f4f6', backgroundColor: note.read ? '#f8fafc' : '#fff7ed' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{note.title}</div>
+                <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>{note.message}</div>
+              </div>
+            ))}
+            {!childNotifications.length && (
+              <div style={{ fontSize: 13, color: '#64748b' }}>No notifications for parents yet.</div>
+            )}
+          </div>
+        </div>
       </div>
     </>
   );

@@ -10,6 +10,7 @@ import { StudentDetailPage } from '@/pages/StudentDetail';
 import { TeachersPage } from '@/pages/Teachers';
 import { AttendancePage } from '@/pages/Attendance';
 import { MarksPage } from '@/pages/Marks';
+import { ExamsPage } from '@/pages/Exams';
 import { TimetablePage } from '@/pages/Timetable';
 import { FeesPage } from '@/pages/Fees';
 import { LeavesPage } from '@/pages/Leaves';
@@ -56,6 +57,12 @@ export default function App() {
             <Route path="/marks" element={
               <RoleGuard allowedRoles={['admin', 'teacher', 'student', 'parent']}>
                 <MarksPage />
+              </RoleGuard>
+            } />
+
+            <Route path="/exams" element={
+              <RoleGuard allowedRoles={['admin', 'teacher', 'student', 'parent']}>
+                <ExamsPage />
               </RoleGuard>
             } />
 

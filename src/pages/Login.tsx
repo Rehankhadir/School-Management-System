@@ -67,6 +67,12 @@ export function LoginPage() {
           position: 'relative', overflow: 'hidden', alignItems: 'center', justifyContent: 'center',
         }}
       >
+        {/* Decorative photo (subtle, behind content) */}
+        <img
+          src="https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=1400&q=80"
+          alt="Students in classroom"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.12, pointerEvents: 'none' }}
+        />
         {/* Dot pattern */}
         <div style={{
           position: 'absolute', inset: 0, opacity: 0.08,

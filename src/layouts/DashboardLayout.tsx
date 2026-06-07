@@ -26,6 +26,7 @@ const navItems: NavItem[] = [
   { label: 'Teachers', path: '/teachers', icon: <GraduationCap size={20} />, roles: ['admin', 'teacher'], group: 'People' },
   { label: 'Attendance', path: '/attendance', icon: <CalendarCheck size={20} />, roles: ['admin', 'teacher', 'student', 'parent'], group: 'Academic' },
   { label: 'Marks', path: '/marks', icon: <BookOpen size={20} />, roles: ['admin', 'teacher', 'student', 'parent'], group: 'Academic' },
+  { label: 'Exams', path: '/exams', icon: <CalendarCheck size={20} />, roles: ['admin', 'teacher', 'student', 'parent'], group: 'Academic' },
   { label: 'Timetable', path: '/timetable', icon: <Clock size={20} />, roles: ['admin', 'teacher', 'student', 'parent'], group: 'Academic' },
   { label: 'Fees', path: '/fees', icon: <DollarSign size={20} />, roles: ['admin', 'student', 'parent', 'accountant'], group: 'Finance' },
   { label: 'Leaves', path: '/leaves', icon: <FileText size={20} />, roles: ['admin', 'teacher', 'student', 'accountant'], group: 'Communication' },

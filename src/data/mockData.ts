@@ -426,3 +426,19 @@ export const subjectColors: Record<string, string> = {
   'Break': 'bg-gray-100 text-gray-500',
   'Lunch': 'bg-gray-100 text-gray-500',
 };
+
+export interface ExamSchedule {
+  id: string;
+  name: string;
+  class: string; // class number as string, e.g. '9'
+  section?: string; // optional
+  date: string; // ISO or YYYY-MM-DD
+  description?: string;
+}
+
+export const exams: ExamSchedule[] = [
+  { id: 'e001', name: 'Unit Test 2', class: '9', section: 'A', date: '2025-03-20', description: 'Slightly longer unit test covering chapters 4-7' },
+  { id: 'e002', name: 'Mid Term', class: '9', section: 'A', date: '2025-04-05', description: 'Mid term covering all units' },
+  { id: 'e003', name: 'Final Exam', class: '9', section: 'A', date: '2025-05-25', description: 'Final board style exam' },
+  { id: 'e004', name: 'Mid Term', class: '10', section: 'A', date: '2025-04-06', description: 'Mid term for class 10' },
+];
