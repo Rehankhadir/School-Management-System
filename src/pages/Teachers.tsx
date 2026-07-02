@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { teachers as initialTeachers, Teacher, subjects as allSubjects } from '@/data/mockData';
+import { Teacher, subjects as allSubjects } from '@/data/mockData';
+import { getTeachers, saveTeacher } from '@/services/schoolModulesService';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
@@ -17,13 +18,24 @@ export function TeachersPage() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editTeacher, setEditTeacher] = useState<Teacher | null>(null);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({
     name: '', employeeId: '', subjects: [] as string[], classAssigned: '', qualification: '',
     phone: '', email: '', joinDate: '', salary: 0,
   });
 
   useEffect(() => {
-    setTimeout(() => { setTeachersList([...initialTeachers]); setLoading(false); }, 600);
+    let active = true;
+    async function load() {
+      setLoading(true);
+      const { data, error } = await getTeachers();
+      if (!active) return;
+      if (error) setError(error.message);
+      setTeachersList(data);
+      setLoading(false);
+    }
+    load();
+    return () => { active = false; };
   }, []);
 
   const filtered = teachersList.filter(t =>
@@ -36,13 +48,17 @@ export function TeachersPage() {
     setShowForm(true);
   };
 
-  const handleSave = () => {
-    if (editTeacher) {
-      setTeachersList(prev => prev.map(t => t.id === editTeacher.id ? { ...t, ...form, subjects: form.subjects } : t));
-    } else {
-      const newT: Teacher = { id: `t${Date.now()}`, ...form, status: 'Active' };
-      setTeachersList(prev => [newT, ...prev]);
+  const handleSave = async () => {
+    setError('');
+    const nextTeacher: Teacher = editTeacher
+      ? { ...editTeacher, ...form, subjects: form.subjects }
+      : { id: `t${Date.now()}`, ...form, status: 'Active' };
+    const { data, error } = await saveTeacher(nextTeacher);
+    if (error || !data) {
+      setError(error?.message || 'Unable to save teacher.');
+      return;
     }
+    setTeachersList(prev => editTeacher ? prev.map(t => t.id === data.id ? data : t) : [data, ...prev]);
     setShowForm(false);
     setEditTeacher(null);
   };
@@ -58,6 +74,8 @@ export function TeachersPage() {
           </button>
         )}
       />
+
+      {error && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
         <div className="relative">

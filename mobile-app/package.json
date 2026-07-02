@@ -1,0 +1,21 @@
+{
+  "name": "school-management-mobile-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "5.1.1",
+    "vite": "7.3.2",
+    "typescript": "5.9.3",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "lucide-react": "^1.16.0",
+    "papaparse": "^5.5.3"
+  },
+  "devDependencies": {}
+}

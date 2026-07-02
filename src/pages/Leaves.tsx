@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { leaves as initialLeaves, LeaveRecord } from '@/data/mockData';
+import { LeaveRecord } from '@/data/mockData';
+import { getLeaves, saveLeave } from '@/services/schoolModulesService';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
@@ -18,25 +19,49 @@ export function LeavesPage() {
   const { role, user } = useAuth();
   const canApprove = role === 'admin';
   const canApply = role !== 'parent';
-  const [leavesList, setLeavesList] = useState<LeaveRecord[]>([...initialLeaves]);
+  const [leavesList, setLeavesList] = useState<LeaveRecord[]>([]);
   const [activeTab, setActiveTab] = useState(canApprove ? 'pending' : 'my');
   const [showForm, setShowForm] = useState(false);
   const [approveTarget, setApproveTarget] = useState<{ leave: LeaveRecord; action: 'approve' | 'reject' } | null>(null);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({ leaveType: 'Sick', fromDate: '', toDate: '', reason: '' });
 
   const pendingLeaves = leavesList.filter((l) => l.status === 'Pending');
   const myLeaves = leavesList.filter((l) => l.applicantName === user?.name);
 
-  const handleApply = () => {
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      const { data, error } = await getLeaves();
+      if (!active) return;
+      if (error) setError(error.message);
+      setLeavesList(data);
+    }
+    load();
+    return () => { active = false; };
+  }, []);
+
+  const handleApply = async () => {
     const from = new Date(form.fromDate); const to = new Date(form.toDate);
     const days = Math.ceil((to.getTime() - from.getTime()) / (86400000)) + 1;
     const nl: LeaveRecord = { id: `l${Date.now()}`, applicantId: user?.id || '', applicantName: user?.name || '', applicantRole: user?.role || '', leaveType: form.leaveType, fromDate: form.fromDate, toDate: form.toDate, days, reason: form.reason, status: 'Pending', appliedOn: new Date().toISOString().split('T')[0] };
-    setLeavesList((p) => [nl, ...p]); setShowForm(false); setForm({ leaveType: 'Sick', fromDate: '', toDate: '', reason: '' });
+    const { data, error } = await saveLeave(nl);
+    if (error || !data) {
+      setError(error?.message || 'Unable to apply leave.');
+      return;
+    }
+    setLeavesList((p) => [data, ...p]); setShowForm(false); setForm({ leaveType: 'Sick', fromDate: '', toDate: '', reason: '' });
   };
 
-  const handleApproveReject = (remarks?: string) => {
+  const handleApproveReject = async (remarks?: string) => {
     if (!approveTarget) return;
-    setLeavesList((p) => p.map((l) => l.id === approveTarget.leave.id ? { ...l, status: approveTarget.action === 'approve' ? 'Approved' : 'Rejected', remarks } as LeaveRecord : l));
+    const nextLeave: LeaveRecord = { ...approveTarget.leave, status: approveTarget.action === 'approve' ? 'Approved' : 'Rejected', remarks };
+    const { data, error } = await saveLeave(nextLeave);
+    if (error || !data) {
+      setError(error?.message || 'Unable to update leave.');
+      return;
+    }
+    setLeavesList((p) => p.map((l) => l.id === data.id ? data : l));
     setApproveTarget(null);
   };
 
@@ -46,6 +71,7 @@ export function LeavesPage() {
   return (
     <>
       <PageHeader title="Leave Management" actions={canApply ? <button onClick={() => setShowForm(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', backgroundColor: '#4f46e5', color: 'white', fontSize: 14, fontWeight: 500, borderRadius: 12, border: 'none', cursor: 'pointer' }}><Plus size={16} /> Apply for Leave</button> : undefined} />
+      {error && <div style={{ padding: 12, marginBottom: 16, borderRadius: 12, backgroundColor: '#fff1f2', color: '#be123c', fontSize: 14, border: '1px solid #fecdd3' }}>{error}</div>}
       <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} variant="pill" />
 
       {showForm && (

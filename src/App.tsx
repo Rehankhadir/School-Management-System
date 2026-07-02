@@ -12,6 +12,7 @@ import { AttendancePage } from '@/pages/Attendance';
 import { MarksPage } from '@/pages/Marks';
 import { ExamsPage } from '@/pages/Exams';
 import { TimetablePage } from '@/pages/Timetable';
+import { HolidaysPage } from '@/pages/Holidays';
 import { FeesPage } from '@/pages/Fees';
 import { LeavesPage } from '@/pages/Leaves';
 import { NotificationsPage } from '@/pages/Notifications';
@@ -69,6 +70,12 @@ export default function App() {
             <Route path="/timetable" element={
               <RoleGuard allowedRoles={['admin', 'teacher', 'student', 'parent']}>
                 <TimetablePage />
+              </RoleGuard>
+            } />
+
+            <Route path="/holidays" element={
+              <RoleGuard allowedRoles={['admin', 'teacher', 'student', 'parent', 'accountant']}>
+                <HolidaysPage />
               </RoleGuard>
             } />
 

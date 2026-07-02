@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { students as initialStudents, classes, sections, Student } from '@/data/mockData';
+import { classes, sections, Student } from '@/data/mockData';
+import { deleteStudent, ensureParentCredentials, getStudents, saveStudent, ParentCredentialsResult } from '@/services/studentService';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
@@ -33,7 +34,7 @@ const inputS: React.CSSProperties = {
 };
 
 export function StudentsPage() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const navigate = useNavigate();
   const [list, setList] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +47,9 @@ export function StudentsPage() {
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Student | null>(null);
   const [newlyAdded, setNewlyAdded] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [parentCredentials, setParentCredentials] = useState<ParentCredentialsResult | null>(null);
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     firstName: '', lastName: '', dob: '', gender: 'Male', bloodGroup: 'B+',
@@ -56,10 +60,33 @@ export function StudentsPage() {
   const perPage = 10;
 
   useEffect(() => {
-    setTimeout(() => { setList([...initialStudents]); setLoading(false); }, 800);
-  }, []);
+    let active = true;
 
-  const filtered = list.filter((s) => {
+    async function loadStudents() {
+      setLoading(true);
+      setError('');
+      const { data, error } = await getStudents();
+      if (!active) return;
+      if (error) setError(error.message || 'Unable to load students from Supabase.');
+      setList(data);
+      setLoading(false);
+    }
+
+    loadStudents();
+    return () => { active = false; };
+  }, [user?.id]);
+
+  const isParent = String(role || user?.role || '').toLowerCase() === 'parent';
+  const parentEmail = (user?.email || '').trim().toLowerCase();
+  const parentName = (user?.name || '').trim().toLowerCase();
+  const visibleStudents = isParent
+    ? list.filter((s) => (
+      s.guardianEmail.trim().toLowerCase() === parentEmail ||
+      s.guardianName.trim().toLowerCase() === parentName
+    ))
+    : list;
+
+  const filtered = visibleStudents.filter((s) => {
     if (search && !s.name.toLowerCase().includes(search.toLowerCase()) && !s.rollNo.includes(search)) return false;
     if (filterClass && s.class !== filterClass) return false;
     if (filterSection && s.section !== filterSection) return false;
@@ -72,23 +99,76 @@ export function StudentsPage() {
 
   const resetForm = () => { setForm({ firstName: '', lastName: '', dob: '', gender: 'Male', bloodGroup: 'B+', class: '9', section: 'A', rollNo: '', admissionDate: new Date().toISOString().split('T')[0], previousSchool: '', guardianName: '', relationship: 'Father', guardianPhone: '', guardianEmail: '', address: '' }); setStep(1); };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+    setParentCredentials(null);
+
     if (editStudent) {
-      setList((p) => p.map((s) => s.id === editStudent.id ? { ...s, name: `${form.firstName} ${form.lastName}`, class: form.class, section: form.section, guardianName: form.guardianName, guardianPhone: form.guardianPhone } : s));
+      const nextStudent: Student = {
+        ...editStudent,
+        name: `${form.firstName} ${form.lastName}`.trim(),
+        rollNo: form.rollNo || editStudent.rollNo,
+        class: form.class,
+        section: form.section,
+        dob: form.dob || editStudent.dob,
+        gender: form.gender,
+        bloodGroup: form.bloodGroup,
+        guardianName: form.guardianName,
+        guardianPhone: form.guardianPhone,
+        guardianEmail: form.guardianEmail,
+        address: form.address,
+        admissionDate: form.admissionDate || editStudent.admissionDate,
+      };
+      const { data, error } = await saveStudent(nextStudent);
+      if (error || !data) {
+        setError(error?.message || 'Unable to update student in Supabase.');
+        setSaving(false);
+        return;
+      }
+      setList((p) => p.map((s) => s.id === editStudent.id ? data : s));
       setEditStudent(null);
     } else {
       const ns: Student = {
-        id: `s${Date.now()}`, name: `${form.firstName} ${form.lastName}`, rollNo: form.rollNo || String(Math.floor(Math.random() * 900) + 100),
-        class: form.class, section: form.section, dob: form.dob, gender: form.gender, bloodGroup: form.bloodGroup,
+        id: `s${Date.now()}`, name: `${form.firstName} ${form.lastName}`.trim(), rollNo: form.rollNo || String(Math.floor(Math.random() * 900) + 100),
+        class: form.class, section: form.section, dob: form.dob || '2010-01-01', gender: form.gender, bloodGroup: form.bloodGroup,
         guardianName: form.guardianName, guardianPhone: form.guardianPhone, guardianEmail: form.guardianEmail,
         address: form.address, photo: null, admissionDate: form.admissionDate, feeStatus: 'Due', attendancePercent: 100,
       };
-      setList((p) => [ns, ...p]);
-      setNewlyAdded(ns.id);
+      const { data, error } = await saveStudent(ns);
+      if (error || !data) {
+        setError(error?.message || 'Unable to create student in Supabase.');
+        setSaving(false);
+        return;
+      }
+      setList((p) => [data, ...p]);
+      const { data: credentials, error: credentialsError } = await ensureParentCredentials(data);
+      if (credentialsError) {
+        setError(`Student saved, but parent login was not created: ${credentialsError.message}`);
+      } else if (credentials) {
+        setParentCredentials(credentials);
+      }
+      setNewlyAdded(data.id);
       setTimeout(() => setNewlyAdded(null), 3000);
       setShowAdd(false);
     }
     resetForm();
+    setSaving(false);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setSaving(true);
+    setError('');
+    const { error } = await deleteStudent(deleteTarget.id);
+    if (error) {
+      setError(error.message || 'Unable to delete student in Supabase.');
+      setSaving(false);
+      return;
+    }
+    setList((p) => p.filter((s) => s.id !== deleteTarget.id));
+    setDeleteTarget(null);
+    setSaving(false);
   };
 
   const openEdit = (s: Student) => {
@@ -107,7 +187,7 @@ export function StudentsPage() {
     <>
       <PageHeader
         title="Students"
-        badge={<Badge variant="indigo">{filtered.length} students</Badge>}
+        badge={<Badge variant="indigo">{isParent ? `${filtered.length} child` : `${filtered.length} students`}</Badge>}
         actions={role === 'admin' ? (
           <button onClick={() => { resetForm(); setShowAdd(true); }}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', backgroundColor: '#4f46e5', color: 'white', fontSize: 14, fontWeight: 500, borderRadius: 12, border: 'none', cursor: 'pointer' }}>
@@ -115,6 +195,25 @@ export function StudentsPage() {
           </button>
         ) : undefined}
       />
+
+      {error && (
+        <div style={{ padding: 12, marginBottom: 16, borderRadius: 12, backgroundColor: '#fff1f2', color: '#be123c', fontSize: 14, border: '1px solid #fecdd3' }}>
+          {error}
+        </div>
+      )}
+
+      {parentCredentials && (
+        <div style={{ padding: 16, marginBottom: 16, borderRadius: 14, backgroundColor: '#ecfdf5', color: '#065f46', fontSize: 14, border: '1px solid #a7f3d0' }}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>
+            {parentCredentials.created ? 'Parent login created' : 'Parent login already exists'}
+          </div>
+          <div>Email: <strong>{parentCredentials.email}</strong></div>
+          {parentCredentials.temporaryPassword && (
+            <div>Temporary password: <strong>{parentCredentials.temporaryPassword}</strong></div>
+          )}
+          <div style={{ marginTop: 6, color: '#047857' }}>{parentCredentials.message}</div>
+        </div>
+      )}
 
       {/* Filters */}
       <div style={{ ...cs, padding: 16, marginBottom: 16 }}>
@@ -154,7 +253,7 @@ export function StudentsPage() {
         {loading ? (
           <div style={{ padding: 16 }}><TableSkeleton rows={5} cols={7} /></div>
         ) : paginated.length === 0 ? (
-          <EmptyState title="No students found" description="Try adjusting your filters or add a new student." />
+          <EmptyState title={isParent ? 'No child linked' : 'No students found'} description={isParent ? 'No student record is linked to this parent account.' : 'Try adjusting your filters or add a new student.'} />
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -249,7 +348,7 @@ export function StudentsPage() {
             {step < 3 ? (
               <button onClick={() => setStep((s) => s + 1)} style={{ padding: '8px 16px', fontSize: 14, fontWeight: 500, color: 'white', backgroundColor: '#4f46e5', border: 'none', borderRadius: 12, cursor: 'pointer' }}>Next</button>
             ) : (
-              <button onClick={handleSave} style={{ padding: '8px 16px', fontSize: 14, fontWeight: 500, color: 'white', backgroundColor: '#4f46e5', border: 'none', borderRadius: 12, cursor: 'pointer' }}>{editStudent ? 'Update' : 'Save Student'}</button>
+              <button onClick={handleSave} disabled={saving} style={{ padding: '8px 16px', fontSize: 14, fontWeight: 500, color: 'white', backgroundColor: saving ? '#a5b4fc' : '#4f46e5', border: 'none', borderRadius: 12, cursor: saving ? 'default' : 'pointer' }}>{saving ? 'Saving...' : editStudent ? 'Update' : 'Save Student'}</button>
             )}
           </div>
         }
@@ -313,7 +412,7 @@ export function StudentsPage() {
         </div>
       </SlideOver>
 
-      <ConfirmDialog isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={() => { setList((p) => p.filter((s) => s.id !== deleteTarget?.id)); setDeleteTarget(null); }} title="Delete Student" message={`Are you sure you want to delete ${deleteTarget?.name}? This action cannot be undone.`} confirmText="Delete" />
+      <ConfirmDialog isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={confirmDelete} title="Delete Student" message={`Are you sure you want to delete ${deleteTarget?.name}? This action cannot be undone.`} confirmText={saving ? 'Deleting...' : 'Delete'} />
     </>
   );
 }

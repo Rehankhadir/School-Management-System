@@ -381,7 +381,10 @@ function StudentDashboard() {
 
 function ParentDashboard() {
   const { user } = useAuth();
-  const child = students.find((student) => student.guardianEmail === user?.email) || students[0];
+  const child = students.find((student) => (
+    student.guardianEmail.trim().toLowerCase() === (user?.email || '').trim().toLowerCase() ||
+    student.guardianName.trim().toLowerCase() === (user?.name || '').trim().toLowerCase()
+  )) || students[0];
   const childMarks = marks.filter((mark) => mark.studentId === child.id);
   const childAverage = childMarks.length
     ? childMarks.reduce((sum, mark) => sum + (mark.scored / mark.maxMarks) * 100, 0) / childMarks.length
@@ -396,10 +399,10 @@ function ParentDashboard() {
     .slice(-3)
     .reverse();
   const upcomingExams = exams
-    .filter((e) => e.class === child.class)
+    .filter((e) => e.class === child.class && (!e.section || e.section === child.section))
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .slice(0, 5)
-    .map((e) => `${e.name} - ${new Date(e.date).toLocaleDateString()}`);
+    .slice(0, 5);
+  const nextExam = upcomingExams[0];
 
   return (
     <>
@@ -437,7 +440,9 @@ function ParentDashboard() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 13, color: '#374151' }}>Next exam</span>
-              <span style={{ fontSize: 13, color: '#6b7280' }}>{upcomingExams[0]}</span>
+              <span style={{ fontSize: 13, color: '#6b7280' }}>
+                {nextExam ? `${nextExam.name}${nextExam.subject ? ` - ${nextExam.subject}` : ''} - ${new Date(nextExam.date).toLocaleDateString()}` : 'No upcoming exam'}
+              </span>
             </div>
             <div style={{ padding: '12px 14px', borderRadius: 14, backgroundColor: '#eef2ff' }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#1d4ed8' }}>Recent grades</div>
@@ -461,10 +466,14 @@ function ParentDashboard() {
           <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>Upcoming Exams</h3>
           <div style={{ display: 'grid', gap: 12 }}>
             {upcomingExams.map((exam) => (
-              <div key={exam} style={{ padding: '12px 14px', borderRadius: 14, border: '1px solid #f3f4f6', backgroundColor: '#eff6ff' }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#1d4ed8' }}>{exam}</div>
+              <div key={exam.id} style={{ padding: '12px 14px', borderRadius: 14, border: '1px solid #f3f4f6', backgroundColor: '#eff6ff' }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#1d4ed8' }}>{exam.name}</div>
+                <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>Class {exam.class}{exam.section || ''} · {new Date(exam.date).toLocaleDateString()}</div>
               </div>
             ))}
+            {!upcomingExams.length && (
+              <div style={{ fontSize: 13, color: '#64748b' }}>No upcoming exams for Class {child.class}{child.section}.</div>
+            )}
           </div>
         </div>
 

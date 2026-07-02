@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { students, classes, sections } from '@/data/mockData';
+import { students, classes, sections, notifications as initialNotifications, type Notification } from '@/data/mockData';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
@@ -8,13 +8,35 @@ import { Tabs } from '@/components/ui/Tabs';
 import { motion } from 'framer-motion';
 import { Check, X, Clock, Download } from 'lucide-react';
 import * as Papa from 'papaparse';
+import { createNotifications, saveAttendanceRecords } from '@/services/schoolDataService';
 
 type AttendanceStatus = 'Present' | 'Absent' | 'Late' | null;
+const ATTENDANCE_SESSION_KEY = 'school.session.attendance';
+const NOTIFICATIONS_SESSION_KEY = 'school.session.notifications';
 const cs: React.CSSProperties = { backgroundColor: 'white', borderRadius: 16, border: '1px solid #f1f5f9', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' };
 const selectS: React.CSSProperties = { padding: '8px 12px', fontSize: 14, border: '1px solid #e5e7eb', borderRadius: 12, outline: 'none' };
+const attendanceMonths = [
+  { label: 'Jan', name: 'January 2025', days: 31 },
+  { label: 'Feb', name: 'February 2025', days: 28 },
+  { label: 'Mar', name: 'March 2025', days: 31 },
+  { label: 'Apr', name: 'April 2025', days: 30 },
+  { label: 'May', name: 'May 2025', days: 31 },
+  { label: 'Jun', name: 'June 2025', days: 30 },
+];
+
+function monthlyAttendanceFor(student: typeof students[number], monthIndex: number) {
+  return Array.from({ length: attendanceMonths[monthIndex].days }, (_, index) => {
+    const day = index + 1;
+    const absentEvery = student.attendancePercent >= 90 ? 17 : student.attendancePercent >= 80 ? 11 : 7;
+    const lateEvery = student.attendancePercent >= 90 ? 9 : 6;
+    const signature = Number(student.rollNo || 0) + monthIndex + day;
+    const status = signature % absentEvery === 0 ? 'Absent' : signature % lateEvery === 0 ? 'Late' : 'Present';
+    return { day, status };
+  });
+}
 
 export function AttendancePage() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const canMark = role === 'admin' || role === 'teacher';
   const [activeTab, setActiveTab] = useState(canMark ? 'mark' : 'reports');
   const [selClass, setSelClass] = useState('9');
@@ -23,17 +45,108 @@ export function AttendancePage() {
   const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
   const [submitted, setSubmitted] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(1);
 
-  const classStudents = students.filter((s) => s.class === selClass && s.section === selSection);
+  const isParent = String(role || user?.role || '').toLowerCase() === 'parent';
+  const parentEmail = (user?.email || '').trim().toLowerCase();
+  const parentName = (user?.name || '').trim().toLowerCase();
+  const visibleStudents = isParent
+    ? students.filter((s) => (
+      s.guardianEmail.trim().toLowerCase() === parentEmail ||
+      s.guardianName.trim().toLowerCase() === parentName
+    ))
+    : students;
+  const classStudents = visibleStudents.filter((s) => s.class === selClass && s.section === selSection);
+  const averageAttendance = visibleStudents.length
+    ? Math.round(visibleStudents.reduce((sum, s) => sum + s.attendancePercent, 0) / visibleStudents.length)
+    : 0;
+  const below75Count = visibleStudents.filter((s) => s.attendancePercent < 75).length;
+  const perfectAttendanceCount = visibleStudents.filter((s) => s.attendancePercent >= 95).length;
+  const parentChild = isParent ? visibleStudents[0] : null;
+  const parentMonthRows = parentChild ? monthlyAttendanceFor(parentChild, selectedMonth) : [];
+  const monthSummary = parentMonthRows.reduce((acc, row) => {
+    acc[row.status] += 1;
+    return acc;
+  }, { Present: 0, Absent: 0, Late: 0 } as Record<'Present' | 'Absent' | 'Late', number>);
   const presentCount = Object.values(attendance).filter((a) => a === 'Present').length;
   const absentCount = Object.values(attendance).filter((a) => a === 'Absent').length;
   const lateCount = Object.values(attendance).filter((a) => a === 'Late').length;
 
-  const loadStudents = () => { const init: Record<string, AttendanceStatus> = {}; classStudents.forEach((s) => { init[s.id] = null; }); setAttendance(init); setLoaded(true); setSubmitted(false); };
+  const readSessionAttendance = () => {
+    try {
+      return JSON.parse(sessionStorage.getItem(ATTENDANCE_SESSION_KEY) || '{}') as Record<string, Record<string, AttendanceStatus>>;
+    } catch {
+      return {};
+    }
+  };
+  const loadStudents = () => {
+    const sessionRows = readSessionAttendance();
+    const key = `${selClass}-${selSection}-${selDate}`;
+    const init: Record<string, AttendanceStatus> = {};
+    classStudents.forEach((s) => { init[s.id] = sessionRows[key]?.[s.id] || null; });
+    setAttendance(init);
+    setLoaded(true);
+    setSubmitted(Boolean(sessionRows[key]));
+  };
   const markAll = (status: AttendanceStatus) => { const u: Record<string, AttendanceStatus> = {}; Object.keys(attendance).forEach((id) => { u[id] = status; }); setAttendance(u); };
+  const submitAttendance = async () => {
+    const key = `${selClass}-${selSection}-${selDate}`;
+    const sessionRows = readSessionAttendance();
+    sessionRows[key] = attendance;
+    sessionStorage.setItem(ATTENDANCE_SESSION_KEY, JSON.stringify(sessionRows));
+    await saveAttendanceRecords(classStudents
+      .filter((student) => attendance[student.id])
+      .map((student) => ({
+        id: `att-${student.id}-${selDate}`,
+        student_id: student.id,
+        class: student.class,
+        section: student.section,
+        date: selDate,
+        status: attendance[student.id] as 'Present' | 'Absent' | 'Late',
+        marked_by: null,
+      })));
+
+    const absentStudents = classStudents.filter((student) => attendance[student.id] === 'Absent');
+    const existingNotifications = (() => {
+      try {
+        return JSON.parse(sessionStorage.getItem(NOTIFICATIONS_SESSION_KEY) || JSON.stringify(initialNotifications)) as Notification[];
+      } catch {
+        return [...initialNotifications];
+      }
+    })();
+    const absentAlerts: Notification[] = absentStudents.map((student) => ({
+      id: `absent-${student.id}-${selDate}-${Date.now()}`,
+      type: 'attendance',
+      title: 'Absent Today',
+      message: `${student.name} was marked absent for Class ${student.class}${student.section} on ${selDate}.`,
+      time: new Date().toISOString(),
+      read: false,
+      forRole: ['parent'],
+      targetEmail: student.guardianEmail.trim().toLowerCase(),
+    }));
+    await createNotifications(absentAlerts.map((alert) => ({
+      id: alert.id,
+      type: alert.type,
+      title: alert.title,
+      message: alert.message,
+      time: alert.time,
+      read: alert.read,
+      for_role: alert.forRole,
+      target_email: alert.targetEmail || null,
+    })));
+    sessionStorage.setItem(NOTIFICATIONS_SESSION_KEY, JSON.stringify([...absentAlerts, ...existingNotifications]));
+    window.dispatchEvent(new Event('school-notifications-updated'));
+    setSubmitted(true);
+  };
+
+  useEffect(() => {
+    setLoaded(false);
+    setSubmitted(false);
+    setAttendance({});
+  }, [selClass, selDate, selSection]);
 
   const exportCSV = () => {
-    const data = students.map((s) => ({ Name: s.name, RollNo: s.rollNo, Class: `${s.class}-${s.section}`, 'Attendance %': s.attendancePercent }));
+    const data = visibleStudents.map((s) => ({ Name: s.name, RollNo: s.rollNo, Class: `${s.class}-${s.section}`, 'Attendance %': s.attendancePercent }));
     const csv = Papa.unparse(data);
     const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'attendance_report.csv'; a.click();
@@ -99,7 +212,7 @@ export function AttendancePage() {
                 {submitted ? (
                   <Badge variant="success" showDot>✓ Attendance submitted for today</Badge>
                 ) : (
-                  <button onClick={() => setSubmitted(true)} disabled={Object.values(attendance).some((v) => v === null)} style={{ padding: '10px 24px', backgroundColor: '#4f46e5', color: 'white', fontSize: 14, fontWeight: 500, borderRadius: 12, border: 'none', cursor: 'pointer', opacity: Object.values(attendance).some((v) => v === null) ? 0.5 : 1 }}>Submit Attendance</button>
+                  <button onClick={submitAttendance} disabled={Object.values(attendance).some((v) => v === null)} style={{ padding: '10px 24px', backgroundColor: '#4f46e5', color: 'white', fontSize: 14, fontWeight: 500, borderRadius: 12, border: 'none', cursor: 'pointer', opacity: Object.values(attendance).some((v) => v === null) ? 0.5 : 1 }}>Submit Attendance</button>
                 )}
               </>
             )}
@@ -109,13 +222,85 @@ export function AttendancePage() {
         {activeTab === 'reports' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
-              {[{ v: '92%', l: 'Overall Attendance', c: '#059669' }, { v: '4', l: 'Below 75%', c: '#e11d48' }, { v: '8', l: 'Perfect Attendance', c: '#4f46e5' }].map((s) => (
+              {[{ v: `${averageAttendance}%`, l: isParent ? "Child's Attendance" : 'Overall Attendance', c: '#059669' }, { v: String(below75Count), l: 'Below 75%', c: '#e11d48' }, { v: String(perfectAttendanceCount), l: '95% and above', c: '#4f46e5' }].map((s) => (
                 <div key={s.l} style={{ ...cs, padding: 16, textAlign: 'center' }}>
                   <div style={{ fontSize: 28, fontWeight: 700, color: s.c }}>{s.v}</div>
                   <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>{s.l}</div>
                 </div>
               ))}
             </div>
+
+            {isParent && parentChild && (
+              <div style={{ ...cs, padding: 16, marginBottom: 24 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+                  <div>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>Month-wise Attendance</h3>
+                    <p style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{parentChild.name} - Class {parentChild.class}{parentChild.section}</p>
+                  </div>
+                  <Badge variant="indigo">{attendanceMonths[selectedMonth].name}</Badge>
+                </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                  {attendanceMonths.map((month, index) => (
+                    <button
+                      key={month.label}
+                      onClick={() => setSelectedMonth(index)}
+                      style={{
+                        minHeight: 34,
+                        minWidth: 52,
+                        padding: '6px 12px',
+                        borderRadius: 999,
+                        border: `1px solid ${selectedMonth === index ? '#4f46e5' : '#e5e7eb'}`,
+                        backgroundColor: selectedMonth === index ? '#4f46e5' : 'white',
+                        color: selectedMonth === index ? 'white' : '#4b5563',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {month.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
+                  {[
+                    { label: 'Present', value: monthSummary.Present, bg: '#ecfdf5', border: '#bbf7d0' },
+                    { label: 'Absent', value: monthSummary.Absent, bg: '#fff1f2', border: '#fecdd3' },
+                    { label: 'Late', value: monthSummary.Late, bg: '#fff7ed', border: '#fed7aa' },
+                  ].map((item) => (
+                    <div key={item.label} style={{ padding: 12, borderRadius: 12, backgroundColor: item.bg, border: `1px solid ${item.border}` }}>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: '#111827' }}>{item.value}</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', marginTop: 2 }}>{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(34px, 1fr))', gap: 8 }}>
+                  {parentMonthRows.map((row) => {
+                    const colors = row.status === 'Present'
+                      ? { bg: '#ecfdf5', border: '#bbf7d0' }
+                      : row.status === 'Absent'
+                        ? { bg: '#fff1f2', border: '#fecdd3' }
+                        : { bg: '#fff7ed', border: '#fed7aa' };
+                    return (
+                      <div key={row.day} style={{ aspectRatio: '1 / 1', minHeight: 34, borderRadius: 10, backgroundColor: colors.bg, border: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#111827' }}>
+                        {row.day}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 14 }}>
+                  {[{ label: 'Present', color: '#22c55e' }, { label: 'Absent', color: '#ef4444' }, { label: 'Late', color: '#f59e0b' }].map((item) => (
+                    <span key={item.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
+                      <span style={{ width: 9, height: 9, borderRadius: 999, backgroundColor: item.color }} />
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
@@ -131,7 +316,7 @@ export function AttendancePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {students.slice(0, 15).map((s, i) => (
+                  {visibleStudents.slice(0, 15).map((s, i) => (
                     <tr key={s.id} style={{ borderBottom: '1px solid #f9fafb', backgroundColor: i % 2 === 1 ? '#fafafa' : 'white' }}>
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><Avatar name={s.name} size="sm" /><span style={{ fontSize: 14, fontWeight: 500, color: '#111827' }}>{s.name}</span></div>

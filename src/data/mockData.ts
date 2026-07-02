@@ -4,8 +4,31 @@ export const mockUsers = [
   { id: 'u001', name: 'Ravi Kumar', email: 'admin@school.com', password: 'admin123', role: 'admin' as const, avatar: null, schoolName: 'Sunrise Public School' },
   { id: 'u002', name: 'Priya Sharma', email: 'teacher@school.com', password: 'teacher123', role: 'teacher' as const, avatar: null, schoolName: 'Sunrise Public School' },
   { id: 'u003', name: 'Arjun Singh', email: 'student@school.com', password: 'student123', role: 'student' as const, avatar: null, schoolName: 'Sunrise Public School' },
-  { id: 'u004', name: 'Meera Devi', email: 'parent@school.com', password: 'parent123', role: 'parent' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u004', name: 'Rajesh Singh', email: 'parent@school.com', password: 'parent123', role: 'parent' as const, avatar: null, schoolName: 'Sunrise Public School' },
   { id: 'u005', name: 'Suresh Gupta', email: 'accountant@school.com', password: 'account123', role: 'accountant' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u006', name: 'Nisha Menon', email: 'nisha.teacher@school.com', password: 'nisha123', role: 'teacher' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u007', name: 'Kabir Mehta', email: 'kabir.student@school.com', password: 'kabir123', role: 'student' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u008', name: 'Anil Mehta', email: 'anil.parent@school.com', password: 'anil123', role: 'parent' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u009', name: 'Maria Fernandes', email: 'maria.parent@school.com', password: 'maria123', role: 'parent' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u010', name: 'Joseph Thomas', email: 'joseph.parent@school.com', password: 'joseph123', role: 'parent' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u011', name: 'Mahesh Kulkarni', email: 'mahesh.parent@school.com', password: 'mahesh123', role: 'parent' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u012', name: 'Naina Fernandes', email: 'naina.student@school.com', password: 'naina123', role: 'student' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u013', name: 'Sara Thomas', email: 'sara.student@school.com', password: 'sara123', role: 'student' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u014', name: 'Rudra Kulkarni', email: 'rudra.student@school.com', password: 'rudra123', role: 'student' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u015', name: 'Imran Qureshi', email: 'imran.teacher@school.com', password: 'imran123', role: 'teacher' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u016', name: 'Leena D Souza', email: 'leena.teacher@school.com', password: 'leena123', role: 'teacher' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u017', name: 'Harsh Vardhan', email: 'harsh.teacher@school.com', password: 'harsh123', role: 'teacher' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u018', name: 'Ananya Iyer', email: 'ananya.teacher@school.com', password: 'ananya123', role: 'teacher' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u019', name: 'Mohan Krishnan', email: 'mohan.teacher@school.com', password: 'mohan123', role: 'teacher' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u020', name: 'Farah Siddiqui', email: 'farah.teacher@school.com', password: 'farah123', role: 'teacher' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u021', name: 'Devika Rao', email: 'devika.parent@school.com', password: 'devika123', role: 'parent' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u022', name: 'Neil Rao', email: 'neil.student@school.com', password: 'neil123', role: 'student' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u023', name: 'Sonia Batra', email: 'sonia.parent@school.com', password: 'sonia123', role: 'parent' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u024', name: 'Mira Batra', email: 'mira.student@school.com', password: 'mira123', role: 'student' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u025', name: 'Arvind Pillai', email: 'arvind.parent@school.com', password: 'arvind123', role: 'parent' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u026', name: 'Ishaan Pillai', email: 'ishaan.student@school.com', password: 'ishaan123', role: 'student' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u027', name: 'Kavita Bansal', email: 'kavita.parent@school.com', password: 'kavita123', role: 'parent' as const, avatar: null, schoolName: 'Sunrise Public School' },
+  { id: 'u028', name: 'Tanya Bansal', email: 'tanya.student@school.com', password: 'tanya123', role: 'student' as const, avatar: null, schoolName: 'Sunrise Public School' },
 ];
 
 export type UserRole = 'admin' | 'teacher' | 'student' | 'parent' | 'accountant';
@@ -14,6 +37,29 @@ export const classes = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11',
 export const sections = ['A', 'B', 'C', 'D'];
 export const subjects = ['Mathematics', 'Science', 'Hindi', 'English', 'Social Studies', 'Computer Science', 'Physical Education', 'Sanskrit'];
 export const paymentModes = ['Cash', 'Online Transfer', 'Cheque', 'DD'];
+
+export interface Holiday {
+  id: string;
+  title: string;
+  date: string;
+  endDate?: string;
+  type: 'National' | 'Festival' | 'School Event' | 'Vacation' | 'Optional';
+  audience: 'All' | 'Students' | 'Teachers' | 'Staff';
+  note: string;
+}
+
+export const holidays: Holiday[] = [
+  { id: 'h001', title: 'Republic Day', date: '2025-01-26', type: 'National', audience: 'All', note: 'School closed for Republic Day celebrations.' },
+  { id: 'h002', title: 'Maha Shivaratri', date: '2025-03-08', type: 'Festival', audience: 'All', note: 'Holiday as per academic calendar.' },
+  { id: 'h003', title: 'Holi Break', date: '2025-03-14', endDate: '2025-03-15', type: 'Festival', audience: 'All', note: 'Classes resume on the next working day.' },
+  { id: 'h004', title: 'Good Friday', date: '2025-04-18', type: 'Optional', audience: 'All', note: 'Optional holiday for observance.' },
+  { id: 'h005', title: 'Summer Vacation', date: '2025-05-10', endDate: '2025-06-15', type: 'Vacation', audience: 'Students', note: 'Administrative office remains open on working days.' },
+  { id: 'h006', title: 'Independence Day', date: '2025-08-15', type: 'National', audience: 'All', note: 'Flag hoisting ceremony in the morning.' },
+  { id: 'h007', title: 'Teacher Development Day', date: '2025-09-05', type: 'School Event', audience: 'Teachers', note: 'Student holiday; teachers attend training workshop.' },
+  { id: 'h008', title: 'Gandhi Jayanti', date: '2025-10-02', type: 'National', audience: 'All', note: 'School closed.' },
+  { id: 'h009', title: 'Diwali Vacation', date: '2025-10-20', endDate: '2025-10-25', type: 'Vacation', audience: 'All', note: 'Festival break for students and staff.' },
+  { id: 'h010', title: 'Christmas', date: '2025-12-25', type: 'Festival', audience: 'All', note: 'School closed for Christmas.' },
+];
 
 export interface Student {
   id: string;
@@ -35,7 +81,7 @@ export interface Student {
 }
 
 export const students: Student[] = [
-  { id: 's001', name: 'Arjun Singh', rollNo: '101', class: '9', section: 'A', dob: '2010-03-15', gender: 'Male', bloodGroup: 'B+', guardianName: 'Rajesh Singh', guardianPhone: '9876543210', guardianEmail: 'rajesh@gmail.com', address: '12, MG Road, Delhi', photo: null, admissionDate: '2022-04-01', feeStatus: 'Paid', attendancePercent: 92 },
+  { id: 's001', name: 'Arjun Singh', rollNo: '101', class: '9', section: 'A', dob: '2010-03-15', gender: 'Male', bloodGroup: 'B+', guardianName: 'Rajesh Singh', guardianPhone: '9876543210', guardianEmail: 'parent@school.com', address: '12, MG Road, Delhi', photo: null, admissionDate: '2022-04-01', feeStatus: 'Paid', attendancePercent: 92 },
   { id: 's002', name: 'Priya Patel', rollNo: '102', class: '9', section: 'A', dob: '2010-07-22', gender: 'Female', bloodGroup: 'A+', guardianName: 'Vikram Patel', guardianPhone: '9876543211', guardianEmail: 'vikram@gmail.com', address: '45, Nehru Nagar, Mumbai', photo: null, admissionDate: '2022-04-01', feeStatus: 'Due', attendancePercent: 88 },
   { id: 's003', name: 'Rohan Sharma', rollNo: '103', class: '9', section: 'A', dob: '2010-01-10', gender: 'Male', bloodGroup: 'O+', guardianName: 'Sunil Sharma', guardianPhone: '9876543212', guardianEmail: 'sunil@gmail.com', address: '78, Gandhi Road, Jaipur', photo: null, admissionDate: '2022-04-01', feeStatus: 'Paid', attendancePercent: 95 },
   { id: 's004', name: 'Ananya Gupta', rollNo: '104', class: '9', section: 'B', dob: '2010-05-18', gender: 'Female', bloodGroup: 'AB+', guardianName: 'Amit Gupta', guardianPhone: '9876543213', guardianEmail: 'amit@gmail.com', address: '23, Lajpat Nagar, Delhi', photo: null, admissionDate: '2022-04-01', feeStatus: 'Overdue', attendancePercent: 78 },
@@ -65,6 +111,23 @@ export const students: Student[] = [
   { id: 's028', name: 'Tara Menon', rollNo: '604', class: '12', section: 'B', dob: '2007-01-19', gender: 'Female', bloodGroup: 'O+', guardianName: 'Suresh Menon', guardianPhone: '9876543237', guardianEmail: 'smenon@gmail.com', address: '23, Thiruvananthapuram', photo: null, admissionDate: '2019-04-01', feeStatus: 'Due', attendancePercent: 89 },
   { id: 's029', name: 'Om Prakash', rollNo: '605', class: '12', section: 'A', dob: '2007-06-05', gender: 'Male', bloodGroup: 'AB-', guardianName: 'Hari Prakash', guardianPhone: '9876543238', guardianEmail: 'hari@gmail.com', address: '56, Patna', photo: null, admissionDate: '2019-04-01', feeStatus: 'Paid', attendancePercent: 92 },
   { id: 's030', name: 'Zara Hussain', rollNo: '606', class: '12', section: 'B', dob: '2007-10-11', gender: 'Female', bloodGroup: 'B+', guardianName: 'Farhan Hussain', guardianPhone: '9876543239', guardianEmail: 'farhan@gmail.com', address: '89, Lucknow', photo: null, admissionDate: '2019-04-01', feeStatus: 'Paid', attendancePercent: 98 },
+  { id: 's031', name: 'Kabir Mehta', rollNo: '106', class: '9', section: 'A', dob: '2010-12-04', gender: 'Male', bloodGroup: 'A+', guardianName: 'Anil Mehta', guardianPhone: '9876543240', guardianEmail: 'anil.parent@school.com', address: '18, Green Park, New Delhi', photo: null, admissionDate: '2022-04-01', feeStatus: 'Partially Paid', attendancePercent: 87 },
+  { id: 's032', name: 'Naina Fernandes', rollNo: '206', class: '10', section: 'B', dob: '2009-03-09', gender: 'Female', bloodGroup: 'O+', guardianName: 'Maria Fernandes', guardianPhone: '9876543241', guardianEmail: 'maria.parent@school.com', address: '42, Camp Area, Pune', photo: null, admissionDate: '2021-04-01', feeStatus: 'Paid', attendancePercent: 94 },
+  { id: 's033', name: 'Eshan Roy', rollNo: '306', class: '8', section: 'B', dob: '2011-05-27', gender: 'Male', bloodGroup: 'B+', guardianName: 'Sanjib Roy', guardianPhone: '9876543242', guardianEmail: 'sanjib.roy@gmail.com', address: '7, Ballygunge Place, Kolkata', photo: null, admissionDate: '2023-04-01', feeStatus: 'Due', attendancePercent: 81 },
+  { id: 's034', name: 'Sara Thomas', rollNo: '406', class: '7', section: 'A', dob: '2012-10-02', gender: 'Female', bloodGroup: 'AB+', guardianName: 'Joseph Thomas', guardianPhone: '9876543243', guardianEmail: 'joseph.parent@school.com', address: '29, Marine Drive, Kochi', photo: null, admissionDate: '2023-04-01', feeStatus: 'Paid', attendancePercent: 96 },
+  { id: 's035', name: 'Rudra Kulkarni', rollNo: '607', class: '12', section: 'A', dob: '2007-02-23', gender: 'Male', bloodGroup: 'O-', guardianName: 'Mahesh Kulkarni', guardianPhone: '9876543244', guardianEmail: 'mahesh.parent@school.com', address: '65, Jayanagar, Bengaluru', photo: null, admissionDate: '2019-04-01', feeStatus: 'Overdue', attendancePercent: 76 },
+  { id: 's036', name: 'Neil Rao', rollNo: '011', class: '1', section: 'A', dob: '2018-01-18', gender: 'Male', bloodGroup: 'B+', guardianName: 'Devika Rao', guardianPhone: '9876543245', guardianEmail: 'devika.parent@school.com', address: '14, Indiranagar, Bengaluru', photo: null, admissionDate: '2024-04-01', feeStatus: 'Paid', attendancePercent: 97 },
+  { id: 's037', name: 'Mira Batra', rollNo: '012', class: '1', section: 'B', dob: '2018-07-21', gender: 'Female', bloodGroup: 'A+', guardianName: 'Sonia Batra', guardianPhone: '9876543246', guardianEmail: 'sonia.parent@school.com', address: '31, Saket, New Delhi', photo: null, admissionDate: '2024-04-01', feeStatus: 'Due', attendancePercent: 90 },
+  { id: 's038', name: 'Ishaan Pillai', rollNo: '021', class: '2', section: 'A', dob: '2017-03-11', gender: 'Male', bloodGroup: 'O+', guardianName: 'Arvind Pillai', guardianPhone: '9876543247', guardianEmail: 'arvind.parent@school.com', address: '11, Panampilly Nagar, Kochi', photo: null, admissionDate: '2023-04-01', feeStatus: 'Partially Paid', attendancePercent: 88 },
+  { id: 's039', name: 'Tanya Bansal', rollNo: '022', class: '2', section: 'B', dob: '2017-09-06', gender: 'Female', bloodGroup: 'AB+', guardianName: 'Kavita Bansal', guardianPhone: '9876543248', guardianEmail: 'kavita.parent@school.com', address: '58, Civil Lines, Jaipur', photo: null, admissionDate: '2023-04-01', feeStatus: 'Paid', attendancePercent: 95 },
+  { id: 's040', name: 'Aarush Sethi', rollNo: '031', class: '3', section: 'A', dob: '2016-04-19', gender: 'Male', bloodGroup: 'A-', guardianName: 'Ritika Sethi', guardianPhone: '9876543249', guardianEmail: 'ritika.sethi@gmail.com', address: '21, Golf Course Road, Gurugram', photo: null, admissionDate: '2022-04-01', feeStatus: 'Paid', attendancePercent: 92 },
+  { id: 's041', name: 'Meera Naidu', rollNo: '032', class: '3', section: 'B', dob: '2016-12-03', gender: 'Female', bloodGroup: 'O-', guardianName: 'Sridhar Naidu', guardianPhone: '9876543250', guardianEmail: 'sridhar.naidu@gmail.com', address: '9, Jubilee Hills, Hyderabad', photo: null, admissionDate: '2022-04-01', feeStatus: 'Overdue', attendancePercent: 79 },
+  { id: 's042', name: 'Kabir Arora', rollNo: '041', class: '4', section: 'A', dob: '2015-02-27', gender: 'Male', bloodGroup: 'B-', guardianName: 'Nidhi Arora', guardianPhone: '9876543251', guardianEmail: 'nidhi.arora@gmail.com', address: '6, Model Town, Ludhiana', photo: null, admissionDate: '2021-04-01', feeStatus: 'Due', attendancePercent: 84 },
+  { id: 's043', name: 'Anvi Kulkarni', rollNo: '042', class: '4', section: 'B', dob: '2015-08-15', gender: 'Female', bloodGroup: 'A+', guardianName: 'Sameer Kulkarni', guardianPhone: '9876543252', guardianEmail: 'sameer.kulkarni@gmail.com', address: '44, Kothrud, Pune', photo: null, admissionDate: '2021-04-01', feeStatus: 'Paid', attendancePercent: 98 },
+  { id: 's044', name: 'Rehan Ahmed', rollNo: '051', class: '5', section: 'A', dob: '2014-05-05', gender: 'Male', bloodGroup: 'AB-', guardianName: 'Salma Ahmed', guardianPhone: '9876543253', guardianEmail: 'salma.ahmed@gmail.com', address: '18, Frazer Town, Bengaluru', photo: null, admissionDate: '2020-04-01', feeStatus: 'Partially Paid', attendancePercent: 86 },
+  { id: 's045', name: 'Ira Kapoor', rollNo: '052', class: '5', section: 'B', dob: '2014-10-29', gender: 'Female', bloodGroup: 'O+', guardianName: 'Rohit Kapoor', guardianPhone: '9876543254', guardianEmail: 'rohit.kapoor@gmail.com', address: '27, Bandra West, Mumbai', photo: null, admissionDate: '2020-04-01', feeStatus: 'Paid', attendancePercent: 94 },
+  { id: 's046', name: 'Vivaan Bose', rollNo: '061', class: '6', section: 'A', dob: '2013-06-13', gender: 'Male', bloodGroup: 'B+', guardianName: 'Anirban Bose', guardianPhone: '9876543255', guardianEmail: 'anirban.bose@gmail.com', address: '71, Salt Lake, Kolkata', photo: null, admissionDate: '2019-04-01', feeStatus: 'Paid', attendancePercent: 91 },
+  { id: 's047', name: 'Sia Malhotra', rollNo: '062', class: '6', section: 'B', dob: '2013-11-24', gender: 'Female', bloodGroup: 'A+', guardianName: 'Pallavi Malhotra', guardianPhone: '9876543256', guardianEmail: 'pallavi.malhotra@gmail.com', address: '33, Vasant Kunj, New Delhi', photo: null, admissionDate: '2019-04-01', feeStatus: 'Due', attendancePercent: 89 },
 ];
 
 export interface Teacher {
@@ -82,7 +145,7 @@ export interface Teacher {
 }
 
 export const teachers: Teacher[] = [
-  { id: 't001', name: 'Priya Sharma', employeeId: 'EMP001', subjects: ['Mathematics'], classAssigned: '9A', qualification: 'M.Sc Mathematics', phone: '9876500001', email: 'priya@school.com', joinDate: '2018-06-15', salary: 45000, status: 'Active' },
+  { id: 't001', name: 'Priya Sharma', employeeId: 'EMP001', subjects: ['Mathematics'], classAssigned: '9A', qualification: 'M.Sc Mathematics', phone: '9876500001', email: 'teacher@school.com', joinDate: '2018-06-15', salary: 45000, status: 'Active' },
   { id: 't002', name: 'Amit Verma', employeeId: 'EMP002', subjects: ['Science'], classAssigned: '10A', qualification: 'M.Sc Physics', phone: '9876500002', email: 'amit@school.com', joinDate: '2019-04-01', salary: 42000, status: 'Active' },
   { id: 't003', name: 'Sunita Devi', employeeId: 'EMP003', subjects: ['Hindi', 'Sanskrit'], classAssigned: '8A', qualification: 'M.A Hindi', phone: '9876500003', email: 'sunita@school.com', joinDate: '2017-07-20', salary: 40000, status: 'Active' },
   { id: 't004', name: 'Rajesh Khanna', employeeId: 'EMP004', subjects: ['English'], classAssigned: '9B', qualification: 'M.A English', phone: '9876500004', email: 'rajesh@school.com', joinDate: '2020-01-10', salary: 38000, status: 'Active' },
@@ -94,6 +157,15 @@ export const teachers: Teacher[] = [
   { id: 't010', name: 'Ramesh Yadav', employeeId: 'EMP010', subjects: ['English', 'Hindi'], classAssigned: '7B', qualification: 'M.A English', phone: '9876500010', email: 'ramesh@school.com', joinDate: '2017-01-10', salary: 39000, status: 'Active' },
   { id: 't011', name: 'Pooja Bhatt', employeeId: 'EMP011', subjects: ['Social Studies'], classAssigned: '11B', qualification: 'M.A Political Science', phone: '9876500011', email: 'pooja@school.com', joinDate: '2022-04-01', salary: 37000, status: 'Active' },
   { id: 't012', name: 'Deepak Hooda', employeeId: 'EMP012', subjects: ['Sanskrit', 'Hindi'], classAssigned: '12B', qualification: 'M.A Sanskrit', phone: '9876500012', email: 'deepak@school.com', joinDate: '2015-06-20', salary: 46000, status: 'Active' },
+  { id: 't013', name: 'Nisha Menon', employeeId: 'EMP013', subjects: ['English', 'Social Studies'], classAssigned: '9A, 10B', qualification: 'M.A English, B.Ed', phone: '9876500013', email: 'nisha.teacher@school.com', joinDate: '2021-06-10', salary: 43500, status: 'Active' },
+  { id: 't014', name: 'Imran Qureshi', employeeId: 'EMP014', subjects: ['Computer Science', 'Mathematics'], classAssigned: '11A, 12A', qualification: 'M.Tech Computer Science', phone: '9876500014', email: 'imran.teacher@school.com', joinDate: '2020-05-18', salary: 52000, status: 'Active' },
+  { id: 't015', name: 'Leena D Souza', employeeId: 'EMP015', subjects: ['Science'], classAssigned: '8B, 9B', qualification: 'M.Sc Biology, B.Ed', phone: '9876500015', email: 'leena.teacher@school.com', joinDate: '2019-07-08', salary: 44500, status: 'Active' },
+  { id: 't016', name: 'Harsh Vardhan', employeeId: 'EMP016', subjects: ['Physical Education'], classAssigned: '7A, 7B, 8A', qualification: 'M.P.Ed', phone: '9876500016', email: 'harsh.teacher@school.com', joinDate: '2018-04-16', salary: 38500, status: 'Active' },
+  { id: 't017', name: 'Ananya Iyer', employeeId: 'EMP017', subjects: ['Mathematics', 'Science'], classAssigned: '1A, 1B, 2A, 2B', qualification: 'B.Ed Primary Education', phone: '9876500017', email: 'ananya.teacher@school.com', joinDate: '2022-06-01', salary: 36000, status: 'Active' },
+  { id: 't018', name: 'Mohan Krishnan', employeeId: 'EMP018', subjects: ['English', 'Hindi'], classAssigned: '3A, 3B, 4A, 4B', qualification: 'M.A English, B.Ed', phone: '9876500018', email: 'mohan.teacher@school.com', joinDate: '2020-08-12', salary: 40500, status: 'Active' },
+  { id: 't019', name: 'Farah Siddiqui', employeeId: 'EMP019', subjects: ['Computer Science', 'Social Studies'], classAssigned: '5A, 5B, 6A, 6B', qualification: 'MCA, B.Ed', phone: '9876500019', email: 'farah.teacher@school.com', joinDate: '2021-07-05', salary: 43000, status: 'Active' },
+  { id: 't020', name: 'Lakshmi Narayan', employeeId: 'EMP020', subjects: ['Sanskrit', 'Hindi'], classAssigned: '6A, 7A, 8A', qualification: 'M.A Sanskrit', phone: '9876500020', email: 'lakshmi@school.com', joinDate: '2018-11-19', salary: 39500, status: 'Active' },
+  { id: 't021', name: 'Ritu Chhabra', employeeId: 'EMP021', subjects: ['Physical Education', 'Science'], classAssigned: '1A, 2A, 3A, 4A', qualification: 'B.P.Ed, B.Sc', phone: '9876500021', email: 'ritu@school.com', joinDate: '2019-09-10', salary: 37200, status: 'Active' },
 ];
 
 export const monthlyFeeCollection = [
@@ -223,6 +295,7 @@ export interface Notification {
   time: string;
   read: boolean;
   forRole: string[];
+  targetEmail?: string;
 }
 
 export const notifications: Notification[] = [
@@ -353,29 +426,11 @@ export interface MarkEntry {
 
 export const marks: MarkEntry[] = [];
 
-// Generate marks for students in class 9
+// Generate marks for all students
 const examTypes = ['Unit Test 1', 'Unit Test 2', 'Mid Term', 'Final Exam'];
 const subjectsForMarks = ['Mathematics', 'Science', 'English', 'Hindi', 'Social Studies', 'Computer Science'];
 
-students.filter(s => s.class === '9').forEach(student => {
-  examTypes.forEach(exam => {
-    subjectsForMarks.forEach(subject => {
-      const maxMarks = exam.includes('Unit') ? 25 : 100;
-      const scored = Math.floor(Math.random() * (maxMarks * 0.4)) + Math.floor(maxMarks * 0.5);
-      const pct = (scored / maxMarks) * 100;
-      let grade = 'F';
-      if (pct >= 90) grade = 'A+';
-      else if (pct >= 80) grade = 'A';
-      else if (pct >= 70) grade = 'B';
-      else if (pct >= 60) grade = 'C';
-      else if (pct >= 50) grade = 'D';
-      marks.push({ studentId: student.id, exam, subject, maxMarks, scored, grade });
-    });
-  });
-});
-
-// Generate marks for class 10 too
-students.filter(s => s.class === '10').forEach(student => {
+students.forEach(student => {
   examTypes.forEach(exam => {
     subjectsForMarks.forEach(subject => {
       const maxMarks = exam.includes('Unit') ? 25 : 100;
@@ -433,6 +488,8 @@ export interface ExamSchedule {
   class: string; // class number as string, e.g. '9'
   section?: string; // optional
   date: string; // ISO or YYYY-MM-DD
+  subject?: string;
+  time?: string;
   description?: string;
 }
 
@@ -441,4 +498,10 @@ export const exams: ExamSchedule[] = [
   { id: 'e002', name: 'Mid Term', class: '9', section: 'A', date: '2025-04-05', description: 'Mid term covering all units' },
   { id: 'e003', name: 'Final Exam', class: '9', section: 'A', date: '2025-05-25', description: 'Final board style exam' },
   { id: 'e004', name: 'Mid Term', class: '10', section: 'A', date: '2025-04-06', description: 'Mid term for class 10' },
+  { id: 'e005', name: 'Unit Test 2', class: '10', section: 'B', date: '2025-03-21', description: 'Unit test for class 10B core subjects' },
+  { id: 'e006', name: 'Final Exam', class: '10', section: 'B', date: '2025-05-26', description: 'Final exam for class 10B' },
+  { id: 'e007', name: 'Unit Test 2', class: '7', section: 'A', date: '2025-03-18', description: 'Class 7A unit test schedule' },
+  { id: 'e008', name: 'Mid Term', class: '7', section: 'A', date: '2025-04-03', description: 'Mid term for class 7A' },
+  { id: 'e009', name: 'Practical Assessment', class: '12', section: 'A', date: '2025-04-12', description: 'Practical assessment for class 12A' },
+  { id: 'e010', name: 'Final Exam', class: '12', section: 'A', date: '2025-05-30', description: 'Final exam for class 12A' },
 ];

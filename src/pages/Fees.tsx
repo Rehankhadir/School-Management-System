@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { students, fees as initialFees, classes, paymentModes, Fee, PaymentRecord } from '@/data/mockData';
+import { classes, paymentModes, Fee, PaymentRecord, Student } from '@/data/mockData';
+import { getFees, saveFee } from '@/services/schoolModulesService';
+import { getStudents } from '@/services/studentService';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { Badge } from '@/components/ui/Badge';
@@ -11,11 +13,31 @@ import { motion } from 'framer-motion';
 import { DollarSign, AlertTriangle, TrendingUp, CreditCard, Search, Eye } from 'lucide-react';
 
 const cs: React.CSSProperties = { backgroundColor: 'white', borderRadius: 16, border: '1px solid #f1f5f9', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' };
+const defaultFeeStructure = [
+  { item: 'Tuition Fee', amount: 25000 },
+  { item: 'Transport Fee', amount: 8000 },
+  { item: 'Library Fee', amount: 2000 },
+  { item: 'Lab Fee', amount: 3000 },
+  { item: 'Activity Fee', amount: 2000 },
+];
+
+const createDefaultFee = (student: Student): Fee => ({
+  studentId: student.id,
+  feeStructure: defaultFeeStructure,
+  totalAmount: 40000,
+  amountPaid: student.feeStatus === 'Paid' ? 40000 : student.feeStatus === 'Partially Paid' ? 25000 : 0,
+  balance: student.feeStatus === 'Paid' ? 0 : student.feeStatus === 'Partially Paid' ? 15000 : 40000,
+  dueDate: '2026-03-31',
+  status: student.feeStatus,
+  paymentHistory: [],
+});
 
 export function FeesPage() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const canRecord = role === 'admin' || role === 'accountant';
-  const [feesData, setFeesData] = useState<Fee[]>([...initialFees]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [feesData, setFeesData] = useState<Fee[]>([]);
+  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [filterClass, setFilterClass] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -24,11 +46,43 @@ export function FeesPage() {
   const [showReceipt, setShowReceipt] = useState<PaymentRecord | null>(null);
   const [payForm, setPayForm] = useState({ amount: 0, mode: 'Cash', reference: '', remarks: '', fullPay: false });
 
-  const totalCollected = feesData.reduce((sum, f) => sum + f.amountPaid, 0);
-  const totalPending = feesData.reduce((sum, f) => sum + f.balance, 0);
-  const overdueCount = feesData.filter((f) => f.status === 'Overdue').length;
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      const [studentResult, feeResult] = await Promise.all([getStudents(), getFees()]);
+      if (!active) return;
+      if (studentResult.error) setError(studentResult.error.message);
+      else setStudents(studentResult.data);
+      if (feeResult.error) setError(feeResult.error.message);
+      else setFeesData(feeResult.data);
+    }
+    load();
+    return () => { active = false; };
+  }, []);
 
-  const filtered = feesData.filter((f) => {
+  const isParent = String(role || user?.role || '').toLowerCase() === 'parent';
+  const parentEmail = (user?.email || '').trim().toLowerCase();
+  const parentName = (user?.name || '').trim().toLowerCase();
+  const linkedStudentIds = isParent
+    ? students
+      .filter((s) => (
+        s.guardianEmail.trim().toLowerCase() === parentEmail ||
+        s.guardianName.trim().toLowerCase() === parentName
+      ))
+      .map((s) => s.id)
+    : null;
+  const visibleStudents = linkedStudentIds
+    ? students.filter((s) => linkedStudentIds.includes(s.id))
+    : students;
+  const feeByStudentId = new Map(feesData.map((fee) => [fee.studentId, fee]));
+  const visibleFeesData = visibleStudents.map((student) => feeByStudentId.get(student.id) || createDefaultFee(student));
+
+  const totalCollected = visibleFeesData.reduce((sum, f) => sum + f.amountPaid, 0);
+  const totalPending = visibleFeesData.reduce((sum, f) => sum + f.balance, 0);
+  const overdueCount = visibleFeesData.filter((f) => f.status === 'Overdue').length;
+  const paymentCount = visibleFeesData.reduce((sum, f) => sum + f.paymentHistory.length, 0);
+
+  const filtered = visibleFeesData.filter((f) => {
     const s = students.find((st) => st.id === f.studentId);
     if (!s) return false;
     if (search && !s.name.toLowerCase().includes(search.toLowerCase())) return false;
@@ -37,35 +91,43 @@ export function FeesPage() {
     return true;
   });
 
-  const handleRecordPayment = () => {
+  const handleRecordPayment = async () => {
     if (!showPayment) return;
-    const idx = feesData.findIndex((f) => f.studentId === showPayment);
-    if (idx === -1) return;
-    const fee = { ...feesData[idx] };
+    const student = students.find((s) => s.id === showPayment);
+    if (!student) return;
+    const fee = { ...(feesData.find((f) => f.studentId === showPayment) || createDefaultFee(student)) };
     const payAmt = payForm.fullPay ? fee.balance : payForm.amount;
     const receipt: PaymentRecord = { id: `pay-${Date.now()}`, date: new Date().toISOString().split('T')[0], amount: payAmt, mode: payForm.mode, receiptNo: `RCP-2025-${String(Math.floor(Math.random() * 9000) + 1000)}`, recordedBy: role || 'Admin', remarks: payForm.remarks };
     fee.amountPaid += payAmt; fee.balance -= payAmt; fee.paymentHistory = [...fee.paymentHistory, receipt];
     fee.status = fee.balance <= 0 ? 'Paid' : fee.amountPaid > 0 ? 'Partially Paid' : 'Due';
-    const updated = [...feesData]; updated[idx] = fee; setFeesData(updated);
+    const { data, error } = await saveFee(fee);
+    if (error || !data) {
+      setError(error?.message || 'Unable to save payment.');
+      return;
+    }
+    setFeesData((prev) => prev.some((f) => f.studentId === data.studentId)
+      ? prev.map((f) => f.studentId === data.studentId ? data : f)
+      : [data, ...prev]);
     setShowPayment(null); setShowReceipt(receipt); setPayForm({ amount: 0, mode: 'Cash', reference: '', remarks: '', fullPay: false });
   };
 
-  const curFee = showPayment ? feesData.find((f) => f.studentId === showPayment) : null;
+  const curFee = showPayment ? visibleFeesData.find((f) => f.studentId === showPayment) : null;
   const curStudent = showPayment ? students.find((s) => s.id === showPayment) : null;
-  const histFee = showHistory ? feesData.find((f) => f.studentId === showHistory) : null;
+  const histFee = showHistory ? visibleFeesData.find((f) => f.studentId === showHistory) : null;
   const histStudent = showHistory ? students.find((s) => s.id === showHistory) : null;
 
   const inputS: React.CSSProperties = { width: '100%', padding: '8px 12px', fontSize: 14, border: '1px solid #e5e7eb', borderRadius: 12, outline: 'none' };
 
   return (
     <>
-      <PageHeader title="Fee Management" subtitle="Track and manage student fees" />
+      <PageHeader title="Fee Management" subtitle={isParent ? "Track your child's fee details" : 'Track and manage student fees'} />
+      {error && <div style={{ padding: 12, marginBottom: 16, borderRadius: 12, backgroundColor: '#fff1f2', color: '#be123c', fontSize: 14, border: '1px solid #fecdd3' }}>{error}</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
         <StatCard label="Total Collected" value={totalCollected} prefix="₹" icon={<TrendingUp size={24} color="#059669" />} iconBg="bg-emerald-100" delay={0} />
         <StatCard label="Pending Amount" value={totalPending} prefix="₹" icon={<DollarSign size={24} color="#d97706" />} iconBg="bg-amber-100" delay={1} />
         <StatCard label="Overdue Count" value={overdueCount} icon={<AlertTriangle size={24} color="#e11d48" />} iconBg="bg-rose-100" delay={2} />
-        <StatCard label="This Month" value={580000} prefix="₹" icon={<CreditCard size={24} color="#4f46e5" />} iconBg="bg-indigo-100" delay={3} />
+        <StatCard label={isParent ? 'Payments' : 'This Month'} value={isParent ? paymentCount : 580000} prefix={isParent ? '' : '₹'} icon={<CreditCard size={24} color="#4f46e5" />} iconBg="bg-indigo-100" delay={3} />
       </div>
 
       {/* Filters */}
@@ -128,6 +190,9 @@ export function FeesPage() {
               })}
             </tbody>
           </table>
+          {filtered.length === 0 && isParent && (
+            <div style={{ padding: 32, textAlign: 'center', fontSize: 14, color: '#6b7280' }}>No fee details are linked to this parent account.</div>
+          )}
         </div>
       </div>
 

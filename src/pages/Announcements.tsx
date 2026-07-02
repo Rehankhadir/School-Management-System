@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { announcements as initialAnnouncements, Announcement } from '@/data/mockData';
+import { Announcement } from '@/data/mockData';
+import { getAnnouncements, saveAnnouncement } from '@/services/schoolModulesService';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Badge } from '@/components/ui/Badge';
 import { motion } from 'framer-motion';
@@ -12,13 +13,31 @@ const borderColors: Record<string, string> = { Normal: '#d1d5db', Important: '#f
 
 export function AnnouncementsPage() {
   const { role } = useAuth();
-  const [list, setList] = useState<Announcement[]>([...initialAnnouncements]);
+  const [list, setList] = useState<Announcement[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({ title: '', body: '', audience: ['All'] as string[], priority: 'Normal' as 'Normal' | 'Important' | 'Urgent' });
 
-  const handlePost = () => {
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      const { data, error } = await getAnnouncements();
+      if (!active) return;
+      if (error) setError(error.message);
+      setList(data);
+    }
+    load();
+    return () => { active = false; };
+  }, []);
+
+  const handlePost = async () => {
     const newA: Announcement = { id: `a${Date.now()}`, title: form.title, body: form.body, audience: form.audience, priority: form.priority, postedBy: 'Admin', postedAt: new Date().toISOString(), pinned: false };
-    setList((p) => [newA, ...p]); setShowForm(false); setForm({ title: '', body: '', audience: ['All'], priority: 'Normal' });
+    const { data, error } = await saveAnnouncement(newA);
+    if (error || !data) {
+      setError(error?.message || 'Unable to post announcement.');
+      return;
+    }
+    setList((p) => [data, ...p]); setShowForm(false); setForm({ title: '', body: '', audience: ['All'], priority: 'Normal' });
   };
 
   const sorted = [...list].sort((a, b) => { if (a.pinned && !b.pinned) return -1; if (!a.pinned && b.pinned) return 1; return new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime(); });
@@ -26,6 +45,8 @@ export function AnnouncementsPage() {
   return (
     <>
       <PageHeader title="Announcements" subtitle="Stay updated with school news" actions={role === 'admin' ? <button onClick={() => setShowForm(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', backgroundColor: '#4f46e5', color: 'white', fontSize: 14, fontWeight: 500, borderRadius: 12, border: 'none', cursor: 'pointer' }}><Plus size={16} /> Post Announcement</button> : undefined} />
+
+      {error && <div style={{ padding: 12, marginBottom: 16, borderRadius: 12, backgroundColor: '#fff1f2', color: '#be123c', fontSize: 14, border: '1px solid #fecdd3' }}>{error}</div>}
 
       {showForm && role === 'admin' && (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: 24, marginBottom: 24 }}>

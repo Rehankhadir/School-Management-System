@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { students, marks, attendanceRecords, fees } from '@/data/mockData';
+import { marks, attendanceRecords, fees, type Student } from '@/data/mockData';
+import { useAuth } from '@/context/AuthContext';
+import { getStudent } from '@/services/studentService';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs } from '@/components/ui/Tabs';
@@ -13,14 +15,57 @@ const cs: React.CSSProperties = { backgroundColor: 'white', borderRadius: 16, bo
 export function StudentDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { role, user } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
+  const [student, setStudent] = useState<Student | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const student = students.find((s) => s.id === id);
+  useEffect(() => {
+    let active = true;
+
+    async function loadStudent() {
+      if (!id) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      const { data } = await getStudent(id);
+      if (!active) return;
+      setStudent(data);
+      setLoading(false);
+    }
+
+    loadStudent();
+    return () => { active = false; };
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div style={{ ...cs, padding: 24, color: '#6b7280' }}>
+        Loading student profile...
+      </div>
+    );
+  }
+
   if (!student) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', marginBottom: 8 }}>Student Not Found</h2>
         <button onClick={() => navigate('/students')} style={{ color: '#4f46e5', fontSize: 14, fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>← Back to Students</button>
+      </div>
+    );
+  }
+
+  const isParent = String(role || user?.role || '').toLowerCase() === 'parent';
+  const canViewStudent = !isParent ||
+    student.guardianEmail.trim().toLowerCase() === (user?.email || '').trim().toLowerCase() ||
+    student.guardianName.trim().toLowerCase() === (user?.name || '').trim().toLowerCase();
+  if (!canViewStudent) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', marginBottom: 8 }}>Student Not Available</h2>
+        <p style={{ color: '#6b7280', marginBottom: 16 }}>This parent account can only view linked child records.</p>
+        <button onClick={() => navigate('/students')} style={{ color: '#4f46e5', fontSize: 14, fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>Back to Students</button>
       </div>
     );
   }

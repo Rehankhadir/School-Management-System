@@ -5,12 +5,23 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { notifications as mockNotifications, students, teachers } from '@/data/mockData';
+import type { Notification } from '@/data/mockData';
 import {
   LayoutDashboard, Users, GraduationCap, CalendarCheck, BookOpen,
   Clock, DollarSign, FileText, Bell, Megaphone, UserCircle,
   Settings, LogOut, ChevronLeft, ChevronRight, Menu, X,
-  Search, ChevronDown
+  Search, ChevronDown, CalendarDays
 } from 'lucide-react';
+
+const NOTIFICATIONS_SESSION_KEY = 'school.session.notifications';
+
+function readSessionNotifications() {
+  try {
+    return JSON.parse(sessionStorage.getItem(NOTIFICATIONS_SESSION_KEY) || JSON.stringify(mockNotifications)) as Notification[];
+  } catch {
+    return [...mockNotifications];
+  }
+}
 
 interface NavItem {
   label: string;
@@ -28,6 +39,7 @@ const navItems: NavItem[] = [
   { label: 'Marks', path: '/marks', icon: <BookOpen size={20} />, roles: ['admin', 'teacher', 'student', 'parent'], group: 'Academic' },
   { label: 'Exams', path: '/exams', icon: <CalendarCheck size={20} />, roles: ['admin', 'teacher', 'student', 'parent'], group: 'Academic' },
   { label: 'Timetable', path: '/timetable', icon: <Clock size={20} />, roles: ['admin', 'teacher', 'student', 'parent'], group: 'Academic' },
+  { label: 'Holidays', path: '/holidays', icon: <CalendarDays size={20} />, roles: ['admin', 'teacher', 'student', 'parent', 'accountant'], group: 'Academic' },
   { label: 'Fees', path: '/fees', icon: <DollarSign size={20} />, roles: ['admin', 'student', 'parent', 'accountant'], group: 'Finance' },
   { label: 'Leaves', path: '/leaves', icon: <FileText size={20} />, roles: ['admin', 'teacher', 'student', 'accountant'], group: 'Communication' },
   { label: 'Announcements', path: '/announcements', icon: <Megaphone size={20} />, roles: ['admin', 'teacher', 'student', 'parent', 'accountant'], group: 'Communication' },
@@ -44,6 +56,7 @@ export function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [sessionNotifications, setSessionNotifications] = useState<Notification[]>(readSessionNotifications);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -52,7 +65,8 @@ export function DashboardLayout() {
 
   const filteredNav = navItems.filter((item) => role && item.roles.includes(role));
   const groups = [...new Set(filteredNav.map((i) => i.group))];
-  const unreadCount = mockNotifications.filter((n) => !n.read && n.forRole.includes(role || '')).length;
+  const roleNotifications = sessionNotifications.filter((n) => n.forRole.includes(role || '') && (!n.targetEmail || n.targetEmail === (user?.email || '').trim().toLowerCase()));
+  const unreadCount = roleNotifications.filter((n) => !n.read).length;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -62,6 +76,12 @@ export function DashboardLayout() {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  useEffect(() => {
+    const sync = () => setSessionNotifications(readSessionNotifications());
+    window.addEventListener('school-notifications-updated', sync);
+    return () => window.removeEventListener('school-notifications-updated', sync);
   }, []);
 
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
@@ -284,7 +304,7 @@ export function DashboardLayout() {
                   <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
                     <span style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>Notifications</span>
                   </div>
-                  {mockNotifications.filter((n) => n.forRole.includes(role || '')).slice(0, 5).map((n) => (
+                  {roleNotifications.slice(0, 5).map((n) => (
                     <div
                       key={n.id}
                       style={{

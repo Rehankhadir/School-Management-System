@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Sunrise School",
+    "slug": "sunrise-school",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "android": {
+      "package": "com.sunrise.school",
+      "adaptiveIcon": {
+        "backgroundColor": "#4f46e5"
+      }
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.sunrise.school"
+    }
+  }
+}

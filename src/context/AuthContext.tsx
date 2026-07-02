@@ -1,15 +1,8 @@
 import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { mockUsers, UserRole } from '@/data/mockData';
+import { UserRole } from '@/data/mockData';
+import { getCurrentProfileUser, loginWithPassword, logoutSupabase, type AppUser } from '@/services/authService';
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  avatar: string | null;
-  schoolName: string;
-  token: string;
-}
+type User = AppUser;
 
 interface AuthState {
   user: User | null;
@@ -53,45 +46,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('sms_user');
-    if (stored) {
-      try {
-        const user = JSON.parse(stored);
+    let active = true;
+
+    async function hydrate() {
+      const { user } = await getCurrentProfileUser();
+      if (!active) return;
+      if (user) {
+        sessionStorage.setItem('sms_user', JSON.stringify(user));
         dispatch({ type: 'REHYDRATE', payload: user });
-      } catch {
+      } else {
         sessionStorage.removeItem('sms_user');
         dispatch({ type: 'SET_LOADING', payload: false });
       }
-    } else {
-      dispatch({ type: 'SET_LOADING', payload: false });
     }
+
+    hydrate();
+    return () => { active = false; };
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     dispatch({ type: 'SET_LOADING', payload: true });
-    // Simulate network delay
-    await new Promise(r => setTimeout(r, 1200));
 
-    const found = mockUsers.find(u => u.email === email && u.password === password);
-    if (found) {
-      const user: User = {
-        id: found.id,
-        name: found.name,
-        email: found.email,
-        role: found.role,
-        avatar: found.avatar,
-        schoolName: found.schoolName,
-        token: 'mock-jwt-token-' + found.id,
-      };
+    const { user, error } = await loginWithPassword(email, password);
+    if (user && !error) {
       sessionStorage.setItem('sms_user', JSON.stringify(user));
       dispatch({ type: 'LOGIN_SUCCESS', payload: user });
       return true;
     }
+
     dispatch({ type: 'SET_LOADING', payload: false });
     return false;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await logoutSupabase();
     sessionStorage.removeItem('sms_user');
     dispatch({ type: 'LOGOUT' });
   };

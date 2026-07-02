@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { notifications as initialNotifications, Notification } from '@/data/mockData';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -10,20 +10,52 @@ import { formatDistanceToNow } from 'date-fns';
 
 const typeIcons: Record<string, React.ReactNode> = { fee: <DollarSign size={16} />, attendance: <CalendarCheck size={16} />, announcement: <Megaphone size={16} />, leave: <FileText size={16} />, general: <Info size={16} /> };
 const typeColors: Record<string, { bg: string; text: string }> = { fee: { bg: '#d1fae5', text: '#059669' }, attendance: { bg: '#fef3c7', text: '#d97706' }, announcement: { bg: '#e0e7ff', text: '#4f46e5' }, leave: { bg: '#ede9fe', text: '#7c3aed' }, general: { bg: '#f3f4f6', text: '#6b7280' } };
+const NOTIFICATIONS_SESSION_KEY = 'school.session.notifications';
+
+function readSessionNotifications() {
+  try {
+    return JSON.parse(sessionStorage.getItem(NOTIFICATIONS_SESSION_KEY) || JSON.stringify(initialNotifications)) as Notification[];
+  } catch {
+    return [...initialNotifications];
+  }
+}
 
 export function NotificationsPage() {
-  const { role } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([...initialNotifications]);
+  const { role, user } = useAuth();
+  const [notifications, setNotifications] = useState<Notification[]>(readSessionNotifications);
   const [activeTab, setActiveTab] = useState('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const roleNotifs = notifications.filter((n) => n.forRole.includes(role || ''));
+  const roleNotifs = notifications.filter((n) => n.forRole.includes(role || '') && (!n.targetEmail || n.targetEmail === (user?.email || '').trim().toLowerCase()));
   const filtered = activeTab === 'all' ? roleNotifs : activeTab === 'unread' ? roleNotifs.filter((n) => !n.read) : roleNotifs.filter((n) => n.type === activeTab);
   const unreadCount = roleNotifs.filter((n) => !n.read).length;
   const selected = roleNotifs.find((n) => n.id === selectedId);
 
-  const markAsRead = (id: string) => { setNotifications((p) => p.map((n) => n.id === id ? { ...n, read: true } : n)); setSelectedId(id); };
-  const markAllRead = () => { setNotifications((p) => p.map((n) => n.forRole.includes(role || '') ? { ...n, read: true } : n)); };
+  useEffect(() => {
+    const sync = () => setNotifications(readSessionNotifications());
+    window.addEventListener('school-notifications-updated', sync);
+    return () => window.removeEventListener('school-notifications-updated', sync);
+  }, []);
+
+  const persistNotifications = (next: Notification[]) => {
+    sessionStorage.setItem(NOTIFICATIONS_SESSION_KEY, JSON.stringify(next));
+    window.dispatchEvent(new Event('school-notifications-updated'));
+  };
+  const markAsRead = (id: string) => {
+    setNotifications((previous) => {
+      const next = previous.map((n) => n.id === id ? { ...n, read: true } : n);
+      persistNotifications(next);
+      return next;
+    });
+    setSelectedId(id);
+  };
+  const markAllRead = () => {
+    setNotifications((previous) => {
+      const next = previous.map((n) => n.forRole.includes(role || '') && (!n.targetEmail || n.targetEmail === (user?.email || '').trim().toLowerCase()) ? { ...n, read: true } : n);
+      persistNotifications(next);
+      return next;
+    });
+  };
 
   const tabs = [{ id: 'all', label: 'All', count: roleNotifs.length }, { id: 'unread', label: 'Unread', count: unreadCount }, { id: 'fee', label: 'Fee Alerts' }, { id: 'attendance', label: 'Attendance' }, { id: 'announcement', label: 'Announcements' }, { id: 'leave', label: 'Leave' }];
   const cs: React.CSSProperties = { backgroundColor: 'white', borderRadius: 16, border: '1px solid #f1f5f9', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' };
