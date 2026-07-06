@@ -17,6 +17,17 @@ export async function createNotifications(records: NotificationInsert[]) {
   return (supabase as any).from('notifications').insert(records).select();
 }
 
+export async function getAttendanceByStudent(studentId: string, startDate: string, endDate: string) {
+  if (!supabase) return { data: null, error: new Error('Supabase is not configured') };
+  return (supabase as any)
+    .from('attendance_records')
+    .select('date, status')
+    .eq('student_id', studentId)
+    .gte('date', startDate)
+    .lte('date', endDate)
+    .order('date', { ascending: true });
+}
+
 export async function getNotifications() {
   if (!supabase) return { data: [], error: new Error('Supabase is not configured') };
   return (supabase as any)

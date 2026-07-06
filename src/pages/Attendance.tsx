@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { students, classes, sections, notifications as initialNotifications, type Notification } from '@/data/mockData';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -6,26 +6,51 @@ import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { Tabs } from '@/components/ui/Tabs';
 import { motion } from 'framer-motion';
-import { Check, X, Clock, Download } from 'lucide-react';
+import { Check, X, Clock, Download, RefreshCw } from 'lucide-react';
 import * as Papa from 'papaparse';
-import { createNotifications, saveAttendanceRecords } from '@/services/schoolDataService';
+import { createNotifications, saveAttendanceRecords, getAttendanceByStudent } from '@/services/schoolDataService';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 type AttendanceStatus = 'Present' | 'Absent' | 'Late' | null;
 const ATTENDANCE_SESSION_KEY = 'school.session.attendance';
 const NOTIFICATIONS_SESSION_KEY = 'school.session.notifications';
 const cs: React.CSSProperties = { backgroundColor: 'white', borderRadius: 16, border: '1px solid #f1f5f9', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' };
 const selectS: React.CSSProperties = { padding: '8px 12px', fontSize: 14, border: '1px solid #e5e7eb', borderRadius: 12, outline: 'none' };
-const attendanceMonths = [
-  { label: 'Jan', name: 'January 2025', days: 31 },
-  { label: 'Feb', name: 'February 2025', days: 28 },
-  { label: 'Mar', name: 'March 2025', days: 31 },
-  { label: 'Apr', name: 'April 2025', days: 30 },
-  { label: 'May', name: 'May 2025', days: 31 },
-  { label: 'Jun', name: 'June 2025', days: 30 },
-];
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function buildAttendanceMonths() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const currentMonth = now.getMonth();
+  return Array.from({ length: currentMonth + 1 }, (_, i) => ({
+    label: MONTH_LABELS[i],
+    name: `${MONTH_NAMES[i]} ${year}`,
+    days: getDaysInMonth(year, i),
+    year,
+    month: i,
+  }));
+}
+
+function isFutureDay(year: number, month: number, day: number) {
+  const now = new Date();
+  const date = new Date(year, month, day);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return date > today;
+}
+
+function isSunday(year: number, month: number, day: number) {
+  return new Date(year, month, day).getDay() === 0;
+}
 
 function monthlyAttendanceFor(student: typeof students[number], monthIndex: number) {
-  return Array.from({ length: attendanceMonths[monthIndex].days }, (_, index) => {
+  const months = buildAttendanceMonths();
+  return Array.from({ length: months[monthIndex].days }, (_, index) => {
     const day = index + 1;
     const absentEvery = student.attendancePercent >= 90 ? 17 : student.attendancePercent >= 80 ? 11 : 7;
     const lateEvery = student.attendancePercent >= 90 ? 9 : 6;
@@ -41,11 +66,16 @@ export function AttendancePage() {
   const [activeTab, setActiveTab] = useState(canMark ? 'mark' : 'reports');
   const [selClass, setSelClass] = useState('9');
   const [selSection, setSelSection] = useState('A');
-  const [selDate, setSelDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selDate, setSelDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
   const [submitted, setSubmitted] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState(1);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [monthRecords, setMonthRecords] = useState<{ day: number; status: 'Present' | 'Absent' | 'Late' }[] | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const isParent = String(role || user?.role || '').toLowerCase() === 'parent';
   const parentEmail = (user?.email || '').trim().toLowerCase();
@@ -57,17 +87,35 @@ export function AttendancePage() {
     ))
     : students;
   const classStudents = visibleStudents.filter((s) => s.class === selClass && s.section === selSection);
-  const averageAttendance = visibleStudents.length
-    ? Math.round(visibleStudents.reduce((sum, s) => sum + s.attendancePercent, 0) / visibleStudents.length)
-    : 0;
-  const below75Count = visibleStudents.filter((s) => s.attendancePercent < 75).length;
-  const perfectAttendanceCount = visibleStudents.filter((s) => s.attendancePercent >= 95).length;
   const parentChild = isParent ? visibleStudents[0] : null;
-  const parentMonthRows = parentChild ? monthlyAttendanceFor(parentChild, selectedMonth) : [];
+  const parentMonthRows = monthRecords || (parentChild ? monthlyAttendanceFor(parentChild, selectedMonth) : []);
+  const months = buildAttendanceMonths();
+  const { year: selectedYear, month: selectedMonthNum } = months[selectedMonth];
   const monthSummary = parentMonthRows.reduce((acc, row) => {
-    acc[row.status] += 1;
+    if (!isFutureDay(selectedYear, selectedMonthNum, row.day) && !isSunday(selectedYear, selectedMonthNum, row.day)) {
+      acc[row.status] += 1;
+    }
     return acc;
   }, { Present: 0, Absent: 0, Late: 0 } as Record<'Present' | 'Absent' | 'Late', number>);
+
+  const computedStats = (() => {
+    if (isParent && parentChild) {
+      const present = monthSummary.Present;
+      const absent = monthSummary.Absent;
+      const late = monthSummary.Late;
+      const counted = present + absent + late;
+      const pct = counted > 0 ? Math.round((present / counted) * 100) : 0;
+      return { averageAttendance: pct, below75Count: pct < 75 ? 1 : 0, perfectAttendanceCount: pct >= 95 ? 1 : 0 };
+    }
+    return {
+      averageAttendance: visibleStudents.length ? Math.round(visibleStudents.reduce((sum, s) => sum + s.attendancePercent, 0) / visibleStudents.length) : 0,
+      below75Count: visibleStudents.filter((s) => s.attendancePercent < 75).length,
+      perfectAttendanceCount: visibleStudents.filter((s) => s.attendancePercent >= 95).length,
+    };
+  })();
+  const averageAttendance = computedStats.averageAttendance;
+  const below75Count = computedStats.below75Count;
+  const perfectAttendanceCount = computedStats.perfectAttendanceCount;
   const presentCount = Object.values(attendance).filter((a) => a === 'Present').length;
   const absentCount = Object.values(attendance).filter((a) => a === 'Absent').length;
   const lateCount = Object.values(attendance).filter((a) => a === 'Late').length;
@@ -80,6 +128,8 @@ export function AttendancePage() {
     }
   };
   const loadStudents = () => {
+    const parts = selDate.split('-');
+    if (isSunday(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))) return;
     const sessionRows = readSessionAttendance();
     const key = `${selClass}-${selSection}-${selDate}`;
     const init: Record<string, AttendanceStatus> = {};
@@ -88,8 +138,14 @@ export function AttendancePage() {
     setLoaded(true);
     setSubmitted(Boolean(sessionRows[key]));
   };
+  const selectedIsSunday = (() => {
+    const parts = selDate.split('-');
+    return isSunday(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  })();
   const markAll = (status: AttendanceStatus) => { const u: Record<string, AttendanceStatus> = {}; Object.keys(attendance).forEach((id) => { u[id] = status; }); setAttendance(u); };
   const submitAttendance = async () => {
+    const parts = selDate.split('-');
+    if (isSunday(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))) return;
     const key = `${selClass}-${selSection}-${selDate}`;
     const sessionRows = readSessionAttendance();
     sessionRows[key] = attendance;
@@ -137,6 +193,7 @@ export function AttendancePage() {
     sessionStorage.setItem(NOTIFICATIONS_SESSION_KEY, JSON.stringify([...absentAlerts, ...existingNotifications]));
     window.dispatchEvent(new Event('school-notifications-updated'));
     setSubmitted(true);
+    setRefreshKey((k) => k + 1);
   };
 
   useEffect(() => {
@@ -144,6 +201,53 @@ export function AttendancePage() {
     setSubmitted(false);
     setAttendance({});
   }, [selClass, selDate, selSection]);
+
+  const fetchMonthRecords = useCallback(() => {
+    if (!isParent || !parentChild) return;
+    const months = buildAttendanceMonths();
+    const { year, month, days } = months[selectedMonth];
+    const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(days).padStart(2, '0')}`;
+
+    if (!isSupabaseConfigured) {
+      setMonthRecords(monthlyAttendanceFor(parentChild, selectedMonth));
+      return;
+    }
+
+    getAttendanceByStudent(parentChild.id, startDate, endDate).then(({ data }) => {
+      if (data && data.length > 0) {
+        const recordsByDay = new Map(data.map((r: { date: string; status: string }) => {
+          const day = Number(r.date.split('-')[2]);
+          return [day, r.status as 'Present' | 'Absent' | 'Late'];
+        }));
+        setMonthRecords(Array.from({ length: days }, (_, i) => ({
+          day: i + 1,
+          status: recordsByDay.get(i + 1) || 'Present',
+        })));
+      } else {
+        setMonthRecords(monthlyAttendanceFor(parentChild, selectedMonth));
+      }
+    }).catch(() => {
+      setMonthRecords(monthlyAttendanceFor(parentChild, selectedMonth));
+    });
+  }, [isParent, parentChild, selectedMonth]);
+
+  useEffect(() => {
+    fetchMonthRecords();
+  }, [fetchMonthRecords, refreshKey]);
+
+  useEffect(() => {
+    if (!isParent) return;
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchMonthRecords();
+    };
+    window.addEventListener('school-notifications-updated', fetchMonthRecords);
+    window.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('school-notifications-updated', fetchMonthRecords);
+      window.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [isParent, fetchMonthRecords]);
 
   const exportCSV = () => {
     const data = visibleStudents.map((s) => ({ Name: s.name, RollNo: s.rollNo, Class: `${s.class}-${s.section}`, 'Attendance %': s.attendancePercent }));
@@ -167,8 +271,11 @@ export function AttendancePage() {
                 <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: '#9ca3af', marginBottom: 4 }}>Class</label><select value={selClass} onChange={(e) => { setSelClass(e.target.value); setLoaded(false); }} style={selectS}>{classes.map((c) => <option key={c} value={c}>Class {c}</option>)}</select></div>
                 <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: '#9ca3af', marginBottom: 4 }}>Section</label><select value={selSection} onChange={(e) => { setSelSection(e.target.value); setLoaded(false); }} style={selectS}>{sections.map((s) => <option key={s} value={s}>{s}</option>)}</select></div>
                 <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: '#9ca3af', marginBottom: 4 }}>Date</label><input type="date" value={selDate} onChange={(e) => setSelDate(e.target.value)} style={selectS} /></div>
-                <button onClick={loadStudents} style={{ padding: '8px 16px', backgroundColor: '#4f46e5', color: 'white', fontSize: 14, fontWeight: 500, borderRadius: 12, border: 'none', cursor: 'pointer' }}>Load Students</button>
+                <button onClick={loadStudents} disabled={selectedIsSunday} style={{ padding: '8px 16px', backgroundColor: selectedIsSunday ? '#d1d5db' : '#4f46e5', color: 'white', fontSize: 14, fontWeight: 500, borderRadius: 12, border: 'none', cursor: selectedIsSunday ? 'not-allowed' : 'pointer' }}>Load Students</button>
               </div>
+              {selectedIsSunday && (
+                <p style={{ fontSize: 13, color: '#e11d48', marginTop: 8 }}>Attendance cannot be marked on Sundays.</p>
+              )}
             </div>
 
             {loaded && (
@@ -237,11 +344,14 @@ export function AttendancePage() {
                     <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>Month-wise Attendance</h3>
                     <p style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{parentChild.name} - Class {parentChild.class}{parentChild.section}</p>
                   </div>
-                  <Badge variant="indigo">{attendanceMonths[selectedMonth].name}</Badge>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button onClick={fetchMonthRecords} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: 12, fontWeight: 500, color: '#4f46e5', backgroundColor: '#eef2ff', borderRadius: 8, border: 'none', cursor: 'pointer' }}><RefreshCw size={12} /> Refresh</button>
+                    <Badge variant="indigo">{buildAttendanceMonths()[selectedMonth].name}</Badge>
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-                  {attendanceMonths.map((month, index) => (
+                  {buildAttendanceMonths().map((month, index) => (
                     <button
                       key={month.label}
                       onClick={() => setSelectedMonth(index)}
@@ -276,19 +386,40 @@ export function AttendancePage() {
                   ))}
                 </div>
 
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(34px, 1fr))', gap: 8, marginBottom: 8 }}>
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                    <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', padding: '4px 0' }}>{d}</div>
+                  ))}
+                </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(34px, 1fr))', gap: 8 }}>
-                  {parentMonthRows.map((row) => {
-                    const colors = row.status === 'Present'
-                      ? { bg: '#ecfdf5', border: '#bbf7d0' }
-                      : row.status === 'Absent'
-                        ? { bg: '#fff1f2', border: '#fecdd3' }
-                        : { bg: '#fff7ed', border: '#fed7aa' };
-                    return (
-                      <div key={row.day} style={{ aspectRatio: '1 / 1', minHeight: 34, borderRadius: 10, backgroundColor: colors.bg, border: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#111827' }}>
-                        {row.day}
-                      </div>
-                    );
-                  })}
+                  {(() => {
+                    const months = buildAttendanceMonths();
+                    const { year, month } = months[selectedMonth];
+                    const firstDay = new Date(year, month, 1).getDay();
+                    const blanks = Array.from({ length: firstDay }, (_, i) => (
+                      <div key={`blank-${i}`} />
+                    ));
+                    const days = parentMonthRows.map((row) => {
+                      const future = isFutureDay(year, month, row.day);
+                      const sunday = isSunday(year, month, row.day);
+                      const greyed = future || sunday;
+                      const colors = greyed
+                        ? { bg: '#f9fafb', border: '#e5e7eb' }
+                        : row.status === 'Present'
+                          ? { bg: '#ecfdf5', border: '#bbf7d0' }
+                          : row.status === 'Absent'
+                            ? { bg: '#fff1f2', border: '#fecdd3' }
+                            : { bg: '#fff7ed', border: '#fed7aa' };
+                      const textColor = greyed ? '#d1d5db' : '#111827';
+                      return (
+                        <div key={row.day} style={{ aspectRatio: '1 / 1', minHeight: 34, borderRadius: 10, backgroundColor: colors.bg, border: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: textColor }}>
+                          {row.day}
+                        </div>
+                      );
+                    });
+                    return [...blanks, ...days];
+                  })()}
                 </div>
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 14 }}>
