@@ -20,7 +20,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { getCurrentProfileUser, loginWithPassword, logoutSupabase } from './src/services/authService';
-import { createNotifications, saveAttendanceRecords } from './src/services/schoolDataService';
+import { createNotifications, saveAttendanceRecords, hasAttendanceForDate, getAttendanceForDate } from './src/services/schoolDataService';
 import { deleteStudent, ensureParentCredentials, getStudents, saveStudent } from './src/services/studentService';
 import {
   getAnnouncements,
@@ -1786,21 +1786,47 @@ function AttendanceSubmissionSheet({
   const [section, setSection] = useState(firstAssigned?.section || '');
   const [attendanceDate, setAttendanceDate] = useState(today);
   const [statuses, setStatuses] = useState<Record<string, AttendanceStatus>>({});
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
+  const [checking, setChecking] = useState(false);
   const roster = students.filter((student) => student.class === klass && student.section === section);
   const setStatus = (studentId: string, status: AttendanceStatus) => setStatuses((prev) => ({ ...prev, [studentId]: status }));
   const selectAssignedClass = (item: AssignedClass) => {
     setKlass(item.klass);
     setSection(item.section);
     setStatuses({});
+    setAlreadySubmitted(false);
   };
   useEffect(() => {
     const first = assignedClasses[0];
     setKlass(first?.klass || '');
     setSection(first?.section || '');
     setStatuses({});
+    setAlreadySubmitted(false);
   }, [assignedClasses, visible]);
 
-  const submit = () => {
+  useEffect(() => {
+    if (!visible || !klass || !section) return;
+    const dateToCheck = attendanceDate || today;
+    let cancelled = false;
+    (async () => {
+      setChecking(true);
+      const { exists } = await hasAttendanceForDate(dateToCheck, `${klass}-${section}`);
+      if (cancelled) return;
+      setAlreadySubmitted(exists);
+      if (exists) {
+        const { data } = await getAttendanceForDate(dateToCheck, `${klass}-${section}`);
+        if (!cancelled && data) {
+          const loaded: Record<string, AttendanceStatus> = {};
+          data.forEach((row: any) => { loaded[row.student_id] = row.status; });
+          setStatuses(loaded);
+        }
+      }
+      setChecking(false);
+    })();
+    return () => { cancelled = true; };
+  }, [visible, klass, section, attendanceDate]);
+
+  const submit = async () => {
     if (!assignedClasses.length) {
       Alert.alert('No assigned class', 'No class has been assigned to this teacher yet.');
       return;
@@ -1809,11 +1835,17 @@ function AttendanceSubmissionSheet({
       Alert.alert('No students found', `There are no students in Class ${klass}${section}.`);
       return;
     }
+    const dateToCheck = attendanceDate || today;
+    const { exists } = await hasAttendanceForDate(dateToCheck, `${klass}-${section}`);
+    if (exists) {
+      Alert.alert('Already submitted', `Attendance for Class ${klass}${section} on ${dateToCheck} has already been submitted.`);
+      return;
+    }
     const records = roster.reduce((acc, student) => {
       acc[student.id] = statuses[student.id] || 'Present';
       return acc;
     }, {} as Record<string, AttendanceStatus>);
-    onSubmit(records, { klass, section, date: attendanceDate || today });
+    onSubmit(records, { klass, section, date: dateToCheck });
   };
 
   return (
@@ -1836,6 +1868,15 @@ function AttendanceSubmissionSheet({
           </View>
           <Text style={styles.label}>Date</Text>
           <TextInput style={styles.input} value={attendanceDate} onChangeText={setAttendanceDate} placeholder="YYYY-MM-DD" />
+          {checking && <Text style={styles.muted}>Checking attendance...</Text>}
+          {alreadySubmitted && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#ECFDF5', borderColor: '#6EE7B7', borderWidth: 1, borderRadius: 10, padding: 10, marginBottom: 12 }}>
+              <Ionicons name="checkmark-circle" size={18} color="#059669" />
+              <Text style={{ color: '#065F46', marginLeft: 6, fontSize: 13, fontWeight: '500' }}>
+                Attendance already submitted for this class on {attendanceDate}
+              </Text>
+            </View>
+          )}
           <View style={styles.attendanceRegisterHeader}>
             <Text style={styles.sectionTitle}>{roster.length} students</Text>
             <Text style={styles.muted}>Default status is Present</Text>
@@ -1860,7 +1901,7 @@ function AttendanceSubmissionSheet({
                         current === status && status === 'Absent' && styles.statusAbsent,
                         current === status && status === 'Late' && styles.statusLate,
                       ]}
-                      onPress={() => setStatus(student.id, status)}
+                      onPress={() => !alreadySubmitted && setStatus(student.id, status)}
                     >
                       <Text style={[styles.statusPillText, current === status && styles.statusPillTextActive]}>{status[0]}</Text>
                     </Pressable>
@@ -1870,8 +1911,14 @@ function AttendanceSubmissionSheet({
             );
           })}
           <View style={styles.sheetActions}>
-            <Pressable style={styles.ghostButton} onPress={() => setStatuses({})}><Text style={styles.ghostText}>Reset</Text></Pressable>
-            <Pressable style={styles.applyButton} onPress={submit}><Text style={styles.applyText}>Submit</Text></Pressable>
+            {alreadySubmitted ? (
+              <Pressable style={styles.applyButton} onPress={onClose}><Text style={styles.applyText}>Close</Text></Pressable>
+            ) : (
+              <>
+                <Pressable style={styles.ghostButton} onPress={() => setStatuses({})}><Text style={styles.ghostText}>Reset</Text></Pressable>
+                <Pressable style={styles.applyButton} onPress={submit}><Text style={styles.applyText}>Submit</Text></Pressable>
+              </>
+            )}
           </View>
         </ScrollView>
       </View>

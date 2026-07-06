@@ -29,14 +29,15 @@ export async function getAttendanceByStudent(studentId: string, startDate: strin
 }
 
 export async function hasAttendanceForDate(date: string, classSection: string) {
-  if (!supabase) return { data: null, error: new Error('Supabase is not configured') };
+  if (!supabase) return { exists: false, error: new Error('Supabase is not configured') };
   const [cls, sec] = classSection.split('-');
-  return (supabase as any)
+  const { count, error } = await (supabase as any)
     .from('attendance_records')
     .select('id', { count: 'exact', head: true })
     .eq('date', date)
     .eq('class', cls)
     .eq('section', sec);
+  return { exists: !error && (count ?? 0) > 0, error };
 }
 
 export async function getNotifications() {

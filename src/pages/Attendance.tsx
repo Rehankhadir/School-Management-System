@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { students, classes, sections, notifications as initialNotifications, type Notification } from '@/data/mockData';
+import { useStudents } from '@/context/StudentsContext';
+import { classes, sections, notifications as initialNotifications, type Notification, type Student } from '@/data/mockData';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
@@ -60,7 +61,7 @@ function parseAssignedClasses(value: string): { klass: string; section: string }
     .filter((item): item is { klass: string; section: string } => Boolean(item));
 }
 
-function monthlyAttendanceFor(student: typeof students[number], monthIndex: number) {
+function monthlyAttendanceFor(student: Student, monthIndex: number) {
   const months = buildAttendanceMonths();
   return Array.from({ length: months[monthIndex].days }, (_, index) => {
     const day = index + 1;
@@ -74,6 +75,7 @@ function monthlyAttendanceFor(student: typeof students[number], monthIndex: numb
 
 export function AttendancePage() {
   const { role, user } = useAuth();
+  const { students } = useStudents();
   const canMark = role === 'admin' || role === 'teacher';
   const [activeTab, setActiveTab] = useState(canMark ? 'mark' : 'reports');
   const [selClass, setSelClass] = useState('9');
@@ -156,8 +158,8 @@ export function AttendancePage() {
     }
 
     if (isSupabaseConfigured) {
-      const { data, error } = await hasAttendanceForDate(selDate, `${selClass}-${selSection}`);
-      if (!error && data) {
+      const { exists } = await hasAttendanceForDate(selDate, `${selClass}-${selSection}`);
+      if (exists) {
         setSubmitted(true);
         return;
       }

@@ -1,4 +1,5 @@
 import { useAuth } from '@/context/AuthContext';
+import { useStudents } from '@/context/StudentsContext';
 import { StatCard } from '@/components/ui/StatCard';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
@@ -10,7 +11,7 @@ import {
   BookOpen, CalendarCheck, Clock
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { monthlyFeeCollection, weeklyAttendance, students, announcements, marks, fees, notifications, leaves, exams } from '@/data/mockData';
+import { monthlyFeeCollection, weeklyAttendance, announcements, marks, fees, notifications, leaves, exams } from '@/data/mockData';
 import { useNavigate } from 'react-router-dom';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -43,6 +44,7 @@ const cardStyle: React.CSSProperties = {
 };
 
 function AdminDashboard() {
+  const { students } = useStudents();
   const navigate = useNavigate();
   const lowAttendance = students.filter((s) => s.attendancePercent < 80).slice(0, 5);
   const recentAnnouncements = announcements.slice(0, 4);
@@ -163,6 +165,7 @@ function AdminDashboard() {
 
 function TeacherDashboard() {
   const { user } = useAuth();
+  const { students } = useStudents();
   const teachingStudents = students.filter((student) => ['9', '10'].includes(student.class));
   const myLeaves = leaves.filter((leave) => leave.applicantId === user?.id && leave.applicantRole === 'Teacher' && leave.status !== 'Rejected');
   const usedLeaveDays = myLeaves.reduce((sum, leave) => sum + leave.days, 0);
@@ -381,6 +384,7 @@ function StudentDashboard() {
 
 function ParentDashboard() {
   const { user } = useAuth();
+  const { students } = useStudents();
   const child = students.find((student) => (
     student.guardianEmail.trim().toLowerCase() === (user?.email || '').trim().toLowerCase() ||
     student.guardianName.trim().toLowerCase() === (user?.name || '').trim().toLowerCase()

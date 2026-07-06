@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { useStudents } from '@/context/StudentsContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { motion, AnimatePresence } from 'framer-motion';
-import { notifications as mockNotifications, students, teachers } from '@/data/mockData';
+import { notifications as mockNotifications, teachers } from '@/data/mockData';
 import type { Notification } from '@/data/mockData';
 import {
   LayoutDashboard, Users, GraduationCap, CalendarCheck, BookOpen,
@@ -52,6 +53,7 @@ const navItems: NavItem[] = [
 
 export function DashboardLayout() {
   const { user, logout, role } = useAuth();
+  const { students } = useStudents();
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);

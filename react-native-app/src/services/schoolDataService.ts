@@ -29,3 +29,26 @@ export async function markNotificationRead(id: string) {
   if (!supabase) return { data: null, error: new Error('Supabase is not configured') };
   return (supabase as any).from('notifications').update({ read: true }).eq('id', id).select();
 }
+
+export async function hasAttendanceForDate(date: string, classSection: string) {
+  if (!supabase) return { exists: false, error: new Error('Supabase is not configured') };
+  const [cls, sec] = classSection.split('-');
+  const { count, error } = await (supabase as any)
+    .from('attendance_records')
+    .select('id', { count: 'exact', head: true })
+    .eq('date', date)
+    .eq('class', cls)
+    .eq('section', sec);
+  return { exists: !error && (count ?? 0) > 0, error };
+}
+
+export async function getAttendanceForDate(date: string, classSection: string) {
+  if (!supabase) return { data: [], error: new Error('Supabase is not configured') };
+  const [cls, sec] = classSection.split('-');
+  return (supabase as any)
+    .from('attendance_records')
+    .select('student_id, status')
+    .eq('date', date)
+    .eq('class', cls)
+    .eq('section', sec);
+}

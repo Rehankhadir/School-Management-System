@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Avatar } from '@/components/ui/Avatar';
-import { students, monthlyFeeCollection, fees, marks, leaves } from '@/data/mockData';
+import { useStudents } from '@/context/StudentsContext';
+import { monthlyFeeCollection, fees, marks, leaves } from '@/data/mockData';
 import { motion } from 'framer-motion';
 import { CalendarCheck, DollarSign, BookOpen, FileText, Download } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -82,6 +83,7 @@ function getReportRows(selected: string | null, filters: ReportFilters) {
 }
 
 export function ReportsPage() {
+  const { students } = useStudents();
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
