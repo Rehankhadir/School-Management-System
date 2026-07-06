@@ -742,6 +742,16 @@ function DashboardScreen({ user, navigate, students, leaveRecords, sessionNotifi
 
   if (user.role === 'parent') {
     const child = students.find((student) => isStudentLinkedToParent(student, user)) || students[0];
+    if (!child) {
+      return (
+        <View style={styles.stack}>
+          <DashboardHeader title="Dashboard" subtitle="Track your child's progress" />
+          <Card title="No child linked">
+            <Text style={styles.muted}>No student record is linked to this parent account.</Text>
+          </Card>
+        </View>
+      );
+    }
     const childMarks = marks.filter((mark) => mark.studentId === child.id);
     const avg = childMarks.length ? childMarks.reduce((sum, mark) => sum + (mark.scored / mark.maxMarks) * 100, 0) / childMarks.length : 0;
     const childFee = initialFees.find((fee) => fee.studentId === child.id);

@@ -28,6 +28,17 @@ export async function getAttendanceByStudent(studentId: string, startDate: strin
     .order('date', { ascending: true });
 }
 
+export async function hasAttendanceForDate(date: string, classSection: string) {
+  if (!supabase) return { data: null, error: new Error('Supabase is not configured') };
+  const [cls, sec] = classSection.split('-');
+  return (supabase as any)
+    .from('attendance_records')
+    .select('id', { count: 'exact', head: true })
+    .eq('date', date)
+    .eq('class', cls)
+    .eq('section', sec);
+}
+
 export async function getNotifications() {
   if (!supabase) return { data: [], error: new Error('Supabase is not configured') };
   return (supabase as any)

@@ -8,7 +8,7 @@ import { Tabs } from '@/components/ui/Tabs';
 import { motion } from 'framer-motion';
 import { Check, X, Clock, Download, RefreshCw } from 'lucide-react';
 import * as Papa from 'papaparse';
-import { createNotifications, saveAttendanceRecords, getAttendanceByStudent } from '@/services/schoolDataService';
+import { createNotifications, saveAttendanceRecords, getAttendanceByStudent, hasAttendanceForDate } from '@/services/schoolDataService';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
 type AttendanceStatus = 'Present' | 'Absent' | 'Late' | null;
@@ -127,16 +127,30 @@ export function AttendancePage() {
       return {};
     }
   };
-  const loadStudents = () => {
+  const loadStudents = async () => {
     const parts = selDate.split('-');
     if (isSunday(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))) return;
-    const sessionRows = readSessionAttendance();
     const key = `${selClass}-${selSection}-${selDate}`;
+    const sessionRows = readSessionAttendance();
     const init: Record<string, AttendanceStatus> = {};
     classStudents.forEach((s) => { init[s.id] = sessionRows[key]?.[s.id] || null; });
     setAttendance(init);
     setLoaded(true);
-    setSubmitted(Boolean(sessionRows[key]));
+
+    if (sessionRows[key]) {
+      setSubmitted(true);
+      return;
+    }
+
+    if (isSupabaseConfigured) {
+      const { data, error } = await hasAttendanceForDate(selDate, `${selClass}-${selSection}`);
+      if (!error && data) {
+        setSubmitted(true);
+        return;
+      }
+    }
+
+    setSubmitted(false);
   };
   const selectedIsSunday = (() => {
     const parts = selDate.split('-');
@@ -317,7 +331,7 @@ export function AttendancePage() {
                 </div>
 
                 {submitted ? (
-                  <Badge variant="success" showDot>✓ Attendance submitted for today</Badge>
+                  <Badge variant="success" showDot>✓ Attendance already submitted for this date</Badge>
                 ) : (
                   <button onClick={submitAttendance} disabled={Object.values(attendance).some((v) => v === null)} style={{ padding: '10px 24px', backgroundColor: '#4f46e5', color: 'white', fontSize: 14, fontWeight: 500, borderRadius: 12, border: 'none', cursor: 'pointer', opacity: Object.values(attendance).some((v) => v === null) ? 0.5 : 1 }}>Submit Attendance</button>
                 )}
