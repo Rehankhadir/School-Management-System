@@ -9,6 +9,7 @@ import { motion } from 'framer-motion';
 import { Check, X, Clock, Download, RefreshCw } from 'lucide-react';
 import * as Papa from 'papaparse';
 import { createNotifications, saveAttendanceRecords, getAttendanceByStudent, hasAttendanceForDate } from '@/services/schoolDataService';
+import { getTeachers } from '@/services/schoolModulesService';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
 type AttendanceStatus = 'Present' | 'Absent' | 'Late' | null;
@@ -48,6 +49,17 @@ function isSunday(year: number, month: number, day: number) {
   return new Date(year, month, day).getDay() === 0;
 }
 
+function parseAssignedClasses(value: string): { klass: string; section: string }[] {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .map((label) => {
+      const match = label.match(/^(\d{1,2})([A-D])$/i);
+      return match ? { klass: match[1], section: match[2].toUpperCase() } : null;
+    })
+    .filter((item): item is { klass: string; section: string } => Boolean(item));
+}
+
 function monthlyAttendanceFor(student: typeof students[number], monthIndex: number) {
   const months = buildAttendanceMonths();
   return Array.from({ length: months[monthIndex].days }, (_, index) => {
@@ -76,6 +88,7 @@ export function AttendancePage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [monthRecords, setMonthRecords] = useState<{ day: number; status: 'Present' | 'Absent' | 'Late' }[] | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [assignedClasses, setAssignedClasses] = useState<{ klass: string; section: string }[]>([]);
 
   const isParent = String(role || user?.role || '').toLowerCase() === 'parent';
   const parentEmail = (user?.email || '').trim().toLowerCase();
@@ -216,6 +229,21 @@ export function AttendancePage() {
     setAttendance({});
   }, [selClass, selDate, selSection]);
 
+  useEffect(() => {
+    if (!isSupabaseConfigured || role !== 'teacher') return;
+    getTeachers().then(({ data }) => {
+      const teacher = data.find((t) => t.email === user?.email || t.name === user?.name);
+      if (teacher) {
+        const parsed = parseAssignedClasses(teacher.classAssigned);
+        setAssignedClasses(parsed);
+        if (parsed.length > 0) {
+          setSelClass(parsed[0].klass);
+          setSelSection(parsed[0].section);
+        }
+      }
+    });
+  }, [role, user?.email, user?.name]);
+
   const fetchMonthRecords = useCallback(() => {
     if (!isParent || !parentChild) return;
     const months = buildAttendanceMonths();
@@ -272,6 +300,14 @@ export function AttendancePage() {
 
   const tabs = canMark ? [{ id: 'mark', label: 'Mark Attendance' }, { id: 'reports', label: 'View Reports' }] : [{ id: 'reports', label: 'View Reports' }];
 
+  const isTeacher = role === 'teacher';
+  const availableClasses = isTeacher && assignedClasses.length > 0
+    ? [...new Set(assignedClasses.map((c) => c.klass))]
+    : classes;
+  const availableSections = isTeacher && assignedClasses.length > 0
+    ? [...new Set(assignedClasses.filter((c) => c.klass === selClass).map((c) => c.section))]
+    : sections;
+
   return (
     <>
       <PageHeader title="Attendance" subtitle="Mark and manage student attendance" />
@@ -282,8 +318,8 @@ export function AttendancePage() {
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <div style={{ ...cs, padding: 16, marginBottom: 16 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
-                <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: '#9ca3af', marginBottom: 4 }}>Class</label><select value={selClass} onChange={(e) => { setSelClass(e.target.value); setLoaded(false); }} style={selectS}>{classes.map((c) => <option key={c} value={c}>Class {c}</option>)}</select></div>
-                <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: '#9ca3af', marginBottom: 4 }}>Section</label><select value={selSection} onChange={(e) => { setSelSection(e.target.value); setLoaded(false); }} style={selectS}>{sections.map((s) => <option key={s} value={s}>{s}</option>)}</select></div>
+                <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: '#9ca3af', marginBottom: 4 }}>Class</label><select value={selClass} onChange={(e) => { setSelClass(e.target.value); setLoaded(false); }} style={selectS}>{availableClasses.map((c) => <option key={c} value={c}>Class {c}</option>)}</select></div>
+                <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: '#9ca3af', marginBottom: 4 }}>Section</label><select value={selSection} onChange={(e) => { setSelSection(e.target.value); setLoaded(false); }} style={selectS}>{availableSections.map((s) => <option key={s} value={s}>{s}</option>)}</select></div>
                 <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: '#9ca3af', marginBottom: 4 }}>Date</label><input type="date" value={selDate} onChange={(e) => setSelDate(e.target.value)} style={selectS} /></div>
                 <button onClick={loadStudents} disabled={selectedIsSunday} style={{ padding: '8px 16px', backgroundColor: selectedIsSunday ? '#d1d5db' : '#4f46e5', color: 'white', fontSize: 14, fontWeight: 500, borderRadius: 12, border: 'none', cursor: selectedIsSunday ? 'not-allowed' : 'pointer' }}>Load Students</button>
               </div>
