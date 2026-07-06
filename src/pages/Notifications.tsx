@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 import { notifications as initialNotifications, Notification } from '@/data/mockData';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Tabs } from '@/components/ui/Tabs';
@@ -7,6 +8,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { motion } from 'framer-motion';
 import { Bell, DollarSign, CalendarCheck, Megaphone, FileText, Info, CheckCheck } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { getNotifications } from '@/services/schoolDataService';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 const typeIcons: Record<string, React.ReactNode> = { fee: <DollarSign size={16} />, attendance: <CalendarCheck size={16} />, announcement: <Megaphone size={16} />, leave: <FileText size={16} />, general: <Info size={16} /> };
 const typeColors: Record<string, { bg: string; text: string }> = { fee: { bg: '#d1fae5', text: '#059669' }, attendance: { bg: '#fef3c7', text: '#d97706' }, announcement: { bg: '#e0e7ff', text: '#4f46e5' }, leave: { bg: '#ede9fe', text: '#7c3aed' }, general: { bg: '#f3f4f6', text: '#6b7280' } };
@@ -22,9 +25,10 @@ function readSessionNotifications() {
 
 export function NotificationsPage() {
   const { role, user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [notifications, setNotifications] = useState<Notification[]>(readSessionNotifications);
   const [activeTab, setActiveTab] = useState('all');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(() => searchParams.get('id'));
 
   const roleNotifs = notifications.filter((n) => n.forRole.includes(role || '') && (!n.targetEmail || n.targetEmail === (user?.email || '').trim().toLowerCase()));
   const filtered = activeTab === 'all' ? roleNotifs : activeTab === 'unread' ? roleNotifs.filter((n) => !n.read) : roleNotifs.filter((n) => n.type === activeTab);
@@ -35,6 +39,28 @@ export function NotificationsPage() {
     const sync = () => setNotifications(readSessionNotifications());
     window.addEventListener('school-notifications-updated', sync);
     return () => window.removeEventListener('school-notifications-updated', sync);
+  }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    getNotifications().then(({ data }) => {
+      if (data && data.length > 0) {
+        const mapped: Notification[] = data.map((r: any) => ({
+          id: r.id,
+          type: r.type,
+          title: r.title,
+          message: r.message,
+          time: r.time,
+          read: r.read,
+          forRole: r.for_role,
+          targetEmail: r.target_email,
+        }));
+        setNotifications(mapped);
+        sessionStorage.setItem(NOTIFICATIONS_SESSION_KEY, JSON.stringify(mapped));
+        const paramId = searchParams.get('id');
+        if (paramId) setSelectedId(paramId);
+      }
+    });
   }, []);
 
   const persistNotifications = (next: Notification[]) => {

@@ -12,6 +12,8 @@ import {
   Settings, LogOut, ChevronLeft, ChevronRight, Menu, X,
   Search, ChevronDown, CalendarDays
 } from 'lucide-react';
+import { getNotifications } from '@/services/schoolDataService';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 const NOTIFICATIONS_SESSION_KEY = 'school.session.notifications';
 
@@ -59,6 +61,7 @@ export function DashboardLayout() {
   const [sessionNotifications, setSessionNotifications] = useState<Notification[]>(readSessionNotifications);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [notifBlink, setNotifBlink] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -82,6 +85,31 @@ export function DashboardLayout() {
     const sync = () => setSessionNotifications(readSessionNotifications());
     window.addEventListener('school-notifications-updated', sync);
     return () => window.removeEventListener('school-notifications-updated', sync);
+  }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    getNotifications().then(({ data }) => {
+      if (data && data.length > 0) {
+        const mapped: Notification[] = data.map((r: any) => ({
+          id: r.id,
+          type: r.type,
+          title: r.title,
+          message: r.message,
+          time: r.time,
+          read: r.read,
+          forRole: r.for_role,
+          targetEmail: r.target_email,
+        }));
+        const hasUnread = mapped.some((n) => !n.read && n.forRole.includes(role || '') && (!n.targetEmail || n.targetEmail === (user?.email || '').trim().toLowerCase()));
+        setSessionNotifications(mapped);
+        sessionStorage.setItem(NOTIFICATIONS_SESSION_KEY, JSON.stringify(mapped));
+        if (hasUnread) {
+          setNotifBlink(true);
+          setTimeout(() => setNotifBlink(false), 3000);
+        }
+      }
+    });
   }, []);
 
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
@@ -286,7 +314,7 @@ export function DashboardLayout() {
               >
                 <Bell size={20} color="#4b5563" />
                 {unreadCount > 0 && (
-                  <span style={{
+                  <span className={notifBlink ? 'animate-notif-blink' : ''} style={{
                     position: 'absolute', top: 2, right: 2, width: 18, height: 18,
                     backgroundColor: '#e11d48', color: 'white', fontSize: 10, fontWeight: 700,
                     borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -307,6 +335,7 @@ export function DashboardLayout() {
                   {roleNotifications.slice(0, 5).map((n) => (
                     <div
                       key={n.id}
+                      onClick={() => { navigate(`/notifications?id=${n.id}`); setShowNotifDropdown(false); }}
                       style={{
                         padding: '10px 16px', cursor: 'pointer',
                         backgroundColor: !n.read ? '#eef2ff' : 'transparent',
