@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Avatar } from '@/components/ui/Avatar';
+import { useAuth } from '@/context/AuthContext';
 import { useStudents } from '@/context/StudentsContext';
 import { monthlyFeeCollection, fees, marks, leaves } from '@/data/mockData';
 import { motion } from 'framer-motion';
@@ -51,7 +52,7 @@ function attendanceMatches(value: number, range: string) {
   return value >= 85;
 }
 
-function getReportRows(selected: string | null, filters: ReportFilters) {
+function getReportRows(selected: string | null, filters: ReportFilters, students: any[]) {
   const filteredStudents = students.filter((student) => (
     (!filters.class || student.class === filters.class) &&
     (!filters.section || student.section === filters.section)
@@ -83,12 +84,14 @@ function getReportRows(selected: string | null, filters: ReportFilters) {
 }
 
 export function ReportsPage() {
+  const { role } = useAuth();
   const { students } = useStudents();
+  const visibleReportTypes = reportTypes.filter((r) => role !== 'teacher' || r.id !== 'fee');
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
   const [filters, setFilters] = useState<ReportFilters>(defaultFilters);
-  const rows = getReportRows(selected, filters);
+  const rows = getReportRows(selected, filters, students);
   const classOptions = Array.from(new Set(students.map((student) => student.class)));
   const sectionOptions = Array.from(new Set(students.map((student) => student.section)));
   const examOptions = Array.from(new Set(marks.map((mark) => mark.exam)));
@@ -116,7 +119,7 @@ export function ReportsPage() {
     <>
       <PageHeader title="Reports" subtitle="Generate and export school reports" />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
-        {reportTypes.map((rt) => (
+        {visibleReportTypes.map((rt) => (
           <motion.button key={rt.id} onClick={() => handleGenerate(rt.id)} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
             style={{ backgroundColor: 'white', borderRadius: 16, border: selected === rt.id ? '2px solid #c7d2fe' : '1px solid #f1f5f9', padding: 20, textAlign: 'left', cursor: 'pointer', boxShadow: selected === rt.id ? '0 0 0 4px #eef2ff' : '0 1px 2px rgba(0,0,0,0.04)', transition: 'all 0.15s' }}>
             <div style={{ width: 48, height: 48, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, backgroundColor: rt.bg, color: rt.text }}>{rt.icon}</div>
@@ -129,7 +132,7 @@ export function ReportsPage() {
       {selected && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ ...cs, overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid #f3f4f6' }}>
-            <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{reportTypes.find((r) => r.id === selected)?.title}</h3>
+            <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{visibleReportTypes.find((r) => r.id === selected)?.title}</h3>
             {generated && <button onClick={exportCSV} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 500, color: '#4f46e5', backgroundColor: '#eef2ff', borderRadius: 8, border: 'none', cursor: 'pointer' }}><Download size={12} /> Export CSV</button>}
           </div>
 

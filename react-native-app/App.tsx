@@ -147,7 +147,7 @@ const navItems: Array<{ screen: Screen; label: string; icon: keyof typeof Ionico
   { screen: 'leaves', label: 'Leaves', icon: 'document-text-outline', roles: ['admin', 'teacher', 'student', 'accountant'] },
   { screen: 'announcements', label: 'News', icon: 'megaphone-outline', roles: ['admin', 'teacher', 'student', 'parent', 'accountant'] },
   { screen: 'notifications', label: 'Alerts', icon: 'notifications-outline', roles: ['admin', 'teacher', 'student', 'parent', 'accountant'] },
-  { screen: 'reports', label: 'Reports', icon: 'download-outline', roles: ['admin', 'accountant'] },
+  { screen: 'reports', label: 'Reports', icon: 'download-outline', roles: ['admin', 'teacher', 'accountant'] },
   { screen: 'profile', label: 'Profile', icon: 'person-circle-outline', roles: ['admin', 'teacher', 'student', 'parent', 'accountant'] },
 ];
 
@@ -707,7 +707,7 @@ function RouteScreen(props: RouteProps) {
     case 'leaves': return <LeavesScreen user={props.user} leaveRecords={props.leaveRecords} setLeaveRecords={props.setLeaveRecords} />;
     case 'announcements': return <AnnouncementsScreen />;
     case 'notifications': return <NotificationsScreen user={props.user} sessionNotifications={props.sessionNotifications} setSessionNotifications={props.setSessionNotifications} />;
-    case 'reports': return <ReportsScreen students={props.students} />;
+    case 'reports': return <ReportsScreen students={props.students} userRole={props.user.role} />;
     case 'profile': return <ProfileScreen user={props.user} profilePhotoUri={props.profilePhotoUri} setProfilePhotoUri={props.setProfilePhotoUri} />;
     default: return <DashboardScreen {...props} />;
   }
@@ -794,88 +794,108 @@ function DashboardScreen({ user, navigate, students, leaveRecords, sessionNotifi
   if (user.role === 'teacher') {
     const teachingStudents = students.filter((student) => ['9', '10'].includes(student.class));
     const myLeaves = leaveRecords.filter((leave) => (leave.applicantId === user.id || leave.applicantName === user.name) && leave.applicantRole === 'Teacher' && leave.status !== 'Rejected');
+    const pendingLeaves = leaveRecords.filter((leave) => (leave.applicantId === user.id || leave.applicantName === user.name) && leave.applicantRole === 'Teacher' && leave.status === 'Pending');
     const usedLeaveDays = myLeaves.reduce((sum, leave) => sum + leave.days, 0);
     const maxLeaveDays = 18;
     const remainingLeaveDays = Math.max(0, maxLeaveDays - usedLeaveDays);
-    const teacherAttendance = Math.max(70, 100 - usedLeaveDays * 1.5);
     const studentSummaries = teachingStudents
       .map((student) => {
         const studentMarks = marks.filter((mark) => mark.studentId === student.id);
         if (!studentMarks.length) return null;
         const averageScore = studentMarks.reduce((sum, mark) => sum + (mark.scored / mark.maxMarks) * 100, 0) / studentMarks.length;
         const lowSubjects = Array.from(new Set(studentMarks.filter((mark) => (mark.scored / mark.maxMarks) * 100 < 60).map((mark) => mark.subject)));
-        const gradeBand = averageScore >= 90 ? 'A+' : averageScore >= 80 ? 'A' : averageScore >= 70 ? 'B' : averageScore >= 60 ? 'C' : averageScore >= 50 ? 'D' : 'F';
-        return { student, averageScore, lowSubjects, gradeBand };
+        const grade = averageScore >= 90 ? 'A+' : averageScore >= 80 ? 'A' : averageScore >= 70 ? 'B' : averageScore >= 60 ? 'C' : averageScore >= 50 ? 'D' : 'F';
+        return { student, averageScore, lowSubjects, grade };
       })
-      .filter((entry): entry is { student: Student; averageScore: number; lowSubjects: string[]; gradeBand: string } => entry !== null);
-    const lowAttendanceStudents = teachingStudents.filter((student) => student.attendancePercent < 85).slice(0, 4);
-    const averageAttendance = teachingStudents.length
-      ? Math.round(teachingStudents.reduce((sum, student) => sum + student.attendancePercent, 0) / teachingStudents.length)
+      .filter((entry): entry is { student: Student; averageScore: number; lowSubjects: string[]; grade: string } => entry !== null);
+    const classAvgScore = studentSummaries.length
+      ? Math.round(studentSummaries.reduce((sum, e) => sum + e.averageScore, 0) / studentSummaries.length)
       : 0;
-    const weakSubjects = Object.entries(
-      marks
-        .filter((mark) => teachingStudents.some((student) => student.id === mark.studentId))
-        .reduce<Record<string, { total: number; count: number }>>((acc, mark) => {
-          const percent = (mark.scored / mark.maxMarks) * 100;
-          if (!acc[mark.subject]) acc[mark.subject] = { total: 0, count: 0 };
-          acc[mark.subject].total += percent;
-          acc[mark.subject].count += 1;
-          return acc;
-        }, {})
-    )
-      .map(([subject, data]) => ({ subject, avg: data.total / data.count }))
-      .sort((a, b) => a.avg - b.avg)
-      .slice(0, 3);
-    const attentionStudents = studentSummaries
-      .filter((entry) => entry.averageScore < 60)
-      .sort((a, b) => a.averageScore - b.averageScore)
-      .slice(0, 5);
-    const gradeDistribution = studentSummaries.reduce<Record<string, number>>((acc, entry) => {
-      acc[entry.gradeBand] = (acc[entry.gradeBand] || 0) + 1;
-      return acc;
-    }, {});
-    const upcomingAssessments = exams
+    const lowAttendanceStudents = teachingStudents.filter((student) => student.attendancePercent < 85).slice(0, 5);
+    const atRiskStudents = studentSummaries.filter((e) => e.averageScore < 60).sort((a, b) => a.averageScore - b.averageScore).slice(0, 5);
+    const gradeDistribution = studentSummaries.reduce<Record<string, number>>((acc, e) => { acc[e.grade] = (acc[e.grade] || 0) + 1; return acc; }, {});
+    const upcomingExams = exams
       .filter((exam) => teachingStudents.some((student) => student.class === exam.class))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(0, 5);
-    const recentAssessments = marks
-      .filter((mark) => teachingStudents.some((student) => student.id === mark.studentId))
-      .slice(-5)
-      .reverse();
-    const lowClassAttendance = teachingStudents.filter((student) => student.attendancePercent < 85).slice(0, 4);
+    const recentMarksFiltered = marks.filter((mark) => teachingStudents.some((student) => student.id === mark.studentId));
+    const latestExamName = recentMarksFiltered.length ? recentMarksFiltered[recentMarksFiltered.length - 1].exam : '';
+    const latestExamMarks = recentMarksFiltered.filter((m) => m.exam === latestExamName);
+    const sortedLatest = [...latestExamMarks].sort((a, b) => (b.scored / b.maxMarks) - (a.scored / a.maxMarks));
+    const topPerformers = sortedLatest.slice(0, 3);
+    const needsImprovement = sortedLatest.slice(-3).reverse();
+    const lowestAttendance = [...teachingStudents].sort((a, b) => a.attendancePercent - b.attendancePercent).slice(0, 5);
+
     return (
       <View style={styles.stack}>
-        <DashboardHeader title="Dashboard" subtitle="Welcome back, Teacher!" />
+        <DashboardHeader title="Dashboard" subtitle={`Welcome, ${user.name?.split(' ')[0] || 'Teacher'}!`} />
+
+        <View style={styles.quickGrid}>
+          <QuickAction label="Mark Attendance" icon="calendar" onPress={() => navigate('attendance')} />
+          <QuickAction label="Enter Marks" icon="document-text" onPress={() => navigate('marks')} />
+          <QuickAction label="View Students" icon="people" onPress={() => navigate('students')} />
+          <QuickAction label="Apply Leave" icon="time" onPress={() => navigate('leaves')} />
+          <QuickAction label="View Reports" icon="bar-chart" onPress={() => navigate('reports')} />
+          <QuickAction label="Timetable" icon="calendar-outline" onPress={() => navigate('timetable')} />
+        </View>
+
         <MetricGrid metrics={[
-          ['My Classes', '3', 'book-open-page-variant'],
-          ['Total Students', String(teachingStudents.length), 'account-group'],
-          ['Teacher Attendance', `${Math.round(teacherAttendance)}%`, 'calendar-check'],
-          ['Leaves Used', `${usedLeaveDays} days`, 'clock-outline'],
-          ['Leaves Available', `${remainingLeaveDays} days`, 'clock-outline'],
+          ['My Students', String(teachingStudents.length), 'account-group'],
+          ['Class Average', `${classAvgScore}%`, 'school'],
+          ['Low Attendance', String(lowAttendanceStudents.length), 'alert-circle'],
+          ['Leaves Left', `${remainingLeaveDays}/${maxLeaveDays}`, 'clock-outline'],
         ]} />
-        <Card title="Class Attendance Snapshot">
-          <InfoRow title="Average Attendance" subtitle={`${averageAttendance}%`} right="Class avg" />
-          <InfoRow title="Low Attendance" subtitle={`${lowAttendanceStudents.length} students`} right="Below 85%" />
-          {lowClassAttendance.map((student) => <InfoRow key={student.id} title={student.name} subtitle={`Class ${student.class}${student.section}`} right={`${student.attendancePercent}%`} />)}
+
+        <Card title="Recent Results">
+          {latestExamName ? <Text style={[styles.muted, { marginBottom: 8, fontSize: 11 }]}>{latestExamName}</Text> : null}
+          {topPerformers.length > 0 && (
+            <>
+              <Text style={[styles.muted, { fontSize: 11, fontWeight: '600', color: '#059669', marginBottom: 6, textTransform: 'uppercase' as const, letterSpacing: 0.5 }]}>Top Performers</Text>
+              {topPerformers.map((m, i) => {
+                const stu = teachingStudents.find((s) => s.id === m.studentId);
+                return <InfoRow key={i} title={stu?.name || m.studentId} subtitle={`${m.subject} · Class ${stu?.class}${stu?.section}`} right={`${m.scored}/${m.maxMarks}`} />;
+              })}
+            </>
+          )}
+          {needsImprovement.length > 0 && (
+            <>
+              <Text style={[styles.muted, { fontSize: 11, fontWeight: '600', color: '#d97706', marginTop: 10, marginBottom: 6, textTransform: 'uppercase' as const, letterSpacing: 0.5 }]}>Needs Improvement</Text>
+              {needsImprovement.map((m, i) => {
+                const stu = teachingStudents.find((s) => s.id === m.studentId);
+                return <InfoRow key={i} title={stu?.name || m.studentId} subtitle={`${m.subject} · Class ${stu?.class}${stu?.section}`} right={`${m.scored}/${m.maxMarks}`} />;
+              })}
+            </>
+          )}
+          {topPerformers.length === 0 && <Text style={styles.muted}>No recent assessment data</Text>}
         </Card>
-        <Card title="Weakest Subjects">
-          {weakSubjects.map((subject) => <InfoRow key={subject.subject} title={subject.subject} subtitle={`${subject.avg.toFixed(0)}% average score`} />)}
-        </Card>
-        <Card title="At-Risk Students">
-          {attentionStudents.length ? attentionStudents.map(({ student, averageScore, lowSubjects }) => (
-            <InfoRow key={student.id} title={student.name} subtitle={`Class ${student.class}${student.section} - Needs support in ${lowSubjects.length ? lowSubjects.join(', ') : 'multiple subjects'}`} right={`${averageScore.toFixed(0)}%`} />
-          )) : <Text style={styles.muted}>No at-risk students detected in your current classes.</Text>}
-        </Card>
-        <Card title="Grade Band Distribution">
-          {['A+', 'A', 'B', 'C', 'D', 'F'].map((band) => <InfoRow key={band} title={band} subtitle="Students" right={String(gradeDistribution[band] || 0)} />)}
-        </Card>
+
         <Card title="Upcoming Assessments">
-          {upcomingAssessments.map((exam) => <InfoRow key={exam.id} title={exam.name} subtitle={new Date(exam.date).toLocaleDateString()} right={`Class ${exam.class}`} />)}
+          {upcomingExams.length ? upcomingExams.map((exam) => (
+            <InfoRow key={exam.id} title={exam.name} subtitle={`Class ${exam.class}${exam.section || ''} ${exam.subject ? `· ${exam.subject}` : ''}`} right={new Date(exam.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} />
+          )) : <Text style={styles.muted}>No upcoming assessments</Text>}
         </Card>
-        <Card title="Recent Assessment Results">
-          {recentAssessments.map((result, index) => (
-            <InfoRow key={`${result.studentId}-${index}`} title={result.subject} subtitle={`${result.exam} - ${students.find((student) => student.id === result.studentId)?.name || 'Student'}`} right={`${result.scored}/${result.maxMarks}`} />
+
+        <Card title="Grade Distribution">
+          {(['A+', 'A', 'B', 'C', 'D', 'F'] as const).map((band) => (
+            <InfoRow key={band} title={band} subtitle={`${gradeDistribution[band] || 0} students`} right={`${studentSummaries.length ? Math.round(((gradeDistribution[band] || 0) / studentSummaries.length) * 100) : 0}%`} />
           ))}
+        </Card>
+
+        <Card title="Attendance Snapshot">
+          {lowestAttendance.map((s) => (
+            <InfoRow key={s.id} title={s.name} subtitle={`Class ${s.class}${s.section} · Roll ${s.rollNo}`} right={`${s.attendancePercent}%`} />
+          ))}
+          {lowestAttendance.length === 0 && <Text style={styles.muted}>All students have good attendance!</Text>}
+        </Card>
+
+        <Card title="Students Needing Attention">
+          {lowAttendanceStudents.slice(0, 3).map((s) => (
+            <InfoRow key={s.id} title={s.name} subtitle={`Class ${s.class}${s.section} · Attendance`} right={`${s.attendancePercent}%`} />
+          ))}
+          {atRiskStudents.slice(0, 3).map((e) => (
+            <InfoRow key={e.student.id} title={e.student.name} subtitle={`Class ${e.student.class}${e.student.section} · Marks`} right={`${e.averageScore.toFixed(0)}%`} />
+          ))}
+          {lowAttendanceStudents.length === 0 && atRiskStudents.length === 0 && <Text style={styles.muted}>All students are doing well!</Text>}
         </Card>
       </View>
     );
@@ -3387,7 +3407,7 @@ function NotificationsScreen({
   );
 }
 
-function ReportsScreen({ students }: { students: Student[] }) {
+function ReportsScreen({ students, userRole }: { students: Student[]; userRole: string }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
@@ -3395,9 +3415,9 @@ function ReportsScreen({ students }: { students: Student[] }) {
   const [filterOpen, setFilterOpen] = useState(false);
   const reportTypes = [
     { id: 'attendance', title: 'Attendance Report', desc: 'Class-wise attendance statistics', icon: 'calendar-check', bg: '#d1fae5', text: '#059669' },
-    { id: 'fee', title: 'Fee Collection Report', desc: 'Monthly fee collection summary', icon: 'cash', bg: '#fef3c7', text: '#d97706' },
     { id: 'marks', title: 'Marks Report', desc: 'Exam-wise marks analysis', icon: 'book-open-page-variant', bg: '#e0e7ff', text: '#4f46e5' },
     { id: 'leave', title: 'Leave Report', desc: 'Staff and student leave records', icon: 'file-document-outline', bg: '#ede9fe', text: '#7c3aed' },
+    ...(userRole !== 'teacher' ? [{ id: 'fee', title: 'Fee Collection Report', desc: 'Monthly fee collection summary', icon: 'cash', bg: '#fef3c7', text: '#d97706' }] : []),
   ];
 
   const handleGenerate = (id: string) => {

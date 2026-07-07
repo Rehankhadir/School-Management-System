@@ -97,7 +97,7 @@ export default function App() {
             <Route path="/notifications" element={<NotificationsPage />} />
 
             <Route path="/reports" element={
-              <RoleGuard allowedRoles={['admin', 'accountant']}>
+              <RoleGuard allowedRoles={['admin', 'teacher', 'accountant']}>
                 <ReportsPage />
               </RoleGuard>
             } />

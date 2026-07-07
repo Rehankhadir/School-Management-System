@@ -47,7 +47,7 @@ const navItems: NavItem[] = [
   { label: 'Leaves', path: '/leaves', icon: <FileText size={20} />, roles: ['admin', 'teacher', 'student', 'accountant'], group: 'Communication' },
   { label: 'Announcements', path: '/announcements', icon: <Megaphone size={20} />, roles: ['admin', 'teacher', 'student', 'parent', 'accountant'], group: 'Communication' },
   { label: 'Notifications', path: '/notifications', icon: <Bell size={20} />, roles: ['admin', 'teacher', 'student', 'parent', 'accountant'], group: 'Communication' },
-  { label: 'Reports', path: '/reports', icon: <FileText size={20} />, roles: ['admin', 'accountant'], group: 'Reports' },
+  { label: 'Reports', path: '/reports', icon: <FileText size={20} />, roles: ['admin', 'teacher', 'accountant'], group: 'Reports' },
   { label: 'Profile', path: '/profile', icon: <UserCircle size={20} />, roles: ['admin', 'teacher', 'student', 'parent', 'accountant'], group: 'Settings' },
 ];
 
