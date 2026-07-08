@@ -6,7 +6,6 @@ import {
   Linking,
   Modal,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -15,6 +14,7 @@ import {
   View,
   type LayoutChangeEvent,
 } from 'react-native';
+import { SafeAreaView, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
@@ -388,6 +388,15 @@ function holidayTone(type: Holiday['type']) {
 }
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
+  );
+}
+
+function AppContent() {
+  const insets = useSafeAreaInsets();
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [screen, setScreen] = useState<Screen>('dashboard');
@@ -498,9 +507,9 @@ export default function App() {
           <Text style={styles.loginSchool}>Sunrise Public School</Text>
           <Text style={styles.loginHeadline}>Loading secure session...</Text>
         </View>
-      </SafeAreaView>
-    );
-  }
+    </SafeAreaView>
+  );
+}
 
   if (!user) return <LoginScreen onLogin={handleLogin} />;
 
@@ -521,7 +530,7 @@ export default function App() {
         </Pressable>
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentInner} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.contentInner, { paddingBottom: 80 + insets.bottom }]} showsVerticalScrollIndicator={false}>
         <RouteScreen
           user={user}
           screen={screen}
@@ -542,7 +551,7 @@ export default function App() {
         />
       </ScrollView>
 
-      <View style={styles.bottomNav}>
+      <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 8) }]}>
         {primaryTabs.map((tab) => {
           const item = navItems.find((nav) => nav.screen === tab);
           if (!item || !item.roles.includes(user.role)) return null;
