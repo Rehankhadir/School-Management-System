@@ -50,6 +50,15 @@ export function TeachersPage() {
 
   const handleSave = async () => {
     setError('');
+    if (!form.name.trim() || !form.email.trim()) {
+      setError('Name and email are required.');
+      return;
+    }
+    const duplicateEmail = teachersList.find((t) => t.email.trim().toLowerCase() === form.email.trim().toLowerCase() && t.id !== editTeacher?.id);
+    if (duplicateEmail) {
+      setError(`A teacher with email "${form.email}" already exists.`);
+      return;
+    }
     const nextTeacher: Teacher = editTeacher
       ? { ...editTeacher, ...form, subjects: form.subjects }
       : { id: `t${Date.now()}`, ...form, status: 'Active' };
@@ -179,6 +188,10 @@ export function TeachersPage() {
           <div>
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Qualification</label>
             <input type="text" value={form.qualification} onChange={e => setForm({...form, qualification: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Email</label>
+            <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="teacher@school.com" className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
