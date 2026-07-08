@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Teacher, subjects as allSubjects } from '@/data/mockData';
+import { Teacher, subjects as allSubjects, classes, sections } from '@/data/mockData';
 import { getTeachers, saveTeacher } from '@/services/schoolModulesService';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Badge } from '@/components/ui/Badge';
@@ -19,6 +19,8 @@ export function TeachersPage() {
   const [showForm, setShowForm] = useState(false);
   const [editTeacher, setEditTeacher] = useState<Teacher | null>(null);
   const [error, setError] = useState('');
+  const [classDropdownOpen, setClassDropdownOpen] = useState(false);
+  const classDropdownRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState({
     name: '', employeeId: '', subjects: [] as string[], classAssigned: '', qualification: '',
     phone: '', email: '', joinDate: new Date().toISOString().slice(0, 10), salary: 0,
@@ -37,6 +39,35 @@ export function TeachersPage() {
     load();
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (classDropdownRef.current && !classDropdownRef.current.contains(e.target as Node)) setClassDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const allClassSections = useMemo(() => classes.flatMap((k) => sections.map((s) => `${k}${s}`)), []);
+
+  const availableClassSections = useMemo(() => {
+    if (form.subjects.length === 0) return allClassSections;
+    const otherTeachers = teachersList.filter((t) => t.id !== editTeacher?.id);
+    return allClassSections.filter((cs) => {
+      const isTaken = otherTeachers.some((t) =>
+        t.classAssigned.split(',').map((s) => s.trim()).includes(cs) &&
+        t.subjects.some((s) => form.subjects.includes(s))
+      );
+      return !isTaken;
+    });
+  }, [form.subjects, teachersList, editTeacher, allClassSections]);
+
+  useEffect(() => {
+    if (form.subjects.length === 0 || !form.classAssigned) return;
+    const selected = form.classAssigned.split(',').map((s) => s.trim()).filter(Boolean);
+    const stillValid = selected.filter((cs) => availableClassSections.includes(cs));
+    if (stillValid.length !== selected.length) setForm((prev) => ({ ...prev, classAssigned: stillValid.join(', ') }));
+  }, [availableClassSections]);
 
   const filtered = teachersList.filter(t =>
     !search || t.name.toLowerCase().includes(search.toLowerCase()) || t.employeeId.toLowerCase().includes(search.toLowerCase())
@@ -181,9 +212,51 @@ export function TeachersPage() {
               ))}
             </div>
           </div>
-          <div>
+          <div className="relative" ref={classDropdownRef}>
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Class Assigned</label>
-            <input type="text" value={form.classAssigned} onChange={e => setForm({...form, classAssigned: e.target.value})} placeholder="e.g. 9A" className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500" />
+            <button type="button" onClick={() => setClassDropdownOpen(!classDropdownOpen)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-left bg-white focus:ring-2 focus:ring-indigo-500 flex items-center justify-between">
+              <span className={clsx(!form.classAssigned && 'text-gray-400')}>{form.classAssigned || 'Select classes...'}</span>
+              <svg className={clsx('w-4 h-4 text-gray-400 transition-transform', classDropdownOpen && 'rotate-180')} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            {classDropdownOpen && (
+              <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-auto">
+                <div className="p-2 border-b border-gray-100 flex gap-2">
+                  <button type="button" onClick={() => setForm({...form, classAssigned: availableClassSections.join(', ')})}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">Select all</button>
+                  <button type="button" onClick={() => setForm({...form, classAssigned: ''})}
+                    className="text-xs text-gray-500 hover:text-gray-700">Clear all</button>
+                </div>
+                {availableClassSections.length === 0 ? (
+                  <div className="px-3 py-4 text-sm text-gray-500 text-center">No classes available for selected subjects</div>
+                ) : (
+                  classes.map((klass) => {
+                    const sectionsForClass = sections.map((sec) => `${klass}${sec}`).filter((cs) => availableClassSections.includes(cs));
+                    if (sectionsForClass.length === 0) return null;
+                    return (
+                      <div key={klass}>
+                        <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50">{`Class ${klass}`}</div>
+                        {sectionsForClass.map((cs) => {
+                          const selected = form.classAssigned.split(',').map((s) => s.trim()).includes(cs);
+                          return (
+                            <label key={cs} className="flex items-center gap-2 px-3 py-1.5 hover:bg-indigo-50 cursor-pointer">
+                              <input type="checkbox" checked={selected} readOnly
+                                className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                onChange={() => {
+                                  const current = form.classAssigned.split(',').map((s) => s.trim()).filter(Boolean);
+                                  const next = selected ? current.filter((c) => c !== cs) : [...current, cs];
+                                  setForm({...form, classAssigned: next.join(', ')});
+                                }} />
+                              <span className="text-sm text-gray-700">{cs}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Qualification</label>
