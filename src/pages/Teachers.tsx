@@ -21,7 +21,7 @@ export function TeachersPage() {
   const [error, setError] = useState('');
   const [form, setForm] = useState({
     name: '', employeeId: '', subjects: [] as string[], classAssigned: '', qualification: '',
-    phone: '', email: '', joinDate: '', salary: 0,
+    phone: '', email: '', joinDate: new Date().toISOString().slice(0, 10), salary: 0,
   });
 
   useEffect(() => {
@@ -69,7 +69,7 @@ export function TeachersPage() {
         title="Teachers"
         badge={<Badge variant="indigo">{filtered.length} teachers</Badge>}
         actions={role === 'admin' && (
-          <button onClick={() => { setForm({ name: '', employeeId: '', subjects: [], classAssigned: '', qualification: '', phone: '', email: '', joinDate: '', salary: 0 }); setEditTeacher(null); setShowForm(true); }} className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 active:scale-95 transition-all">
+          <button onClick={() => { setForm({ name: '', employeeId: '', subjects: [], classAssigned: '', qualification: '', phone: '', email: '', joinDate: new Date().toISOString().slice(0, 10), salary: 0 }); setEditTeacher(null); setShowForm(true); }} className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 active:scale-95 transition-all">
             <Plus className="w-4 h-4" /> Add Teacher
           </button>
         )}
@@ -189,6 +189,10 @@ export function TeachersPage() {
               <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Salary (₹)</label>
               <input type="number" value={form.salary} onChange={e => setForm({...form, salary: Number(e.target.value)})} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500" />
             </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Join Date</label>
+            <input type="date" value={form.joinDate} onChange={e => setForm({...form, joinDate: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500" />
           </div>
         </div>
       </SlideOver>
