@@ -505,3 +505,81 @@ export const exams: ExamSchedule[] = [
   { id: 'e009', name: 'Practical Assessment', class: '12', section: 'A', date: '2025-04-12', description: 'Practical assessment for class 12A' },
   { id: 'e010', name: 'Final Exam', class: '12', section: 'A', date: '2025-05-30', description: 'Final exam for class 12A' },
 ];
+
+export interface PendingSubmission {
+  classSection: string;
+  className: string;
+  teacherName: string;
+  teacherPhone: string;
+  status: 'Submitted' | 'Pending';
+  submittedAt?: string;
+  studentCount: number;
+}
+
+export const pendingSubmissions: PendingSubmission[] = [
+  { classSection: '1A', className: 'Class 1A', teacherName: 'Ananya Iyer', teacherPhone: '9876500017', status: 'Submitted', submittedAt: '2025-03-01T08:45:00', studentCount: 3 },
+  { classSection: '1B', className: 'Class 1B', teacherName: 'Ananya Iyer', teacherPhone: '9876500017', status: 'Pending', studentCount: 2 },
+  { classSection: '2A', className: 'Class 2A', teacherName: 'Ananya Iyer', teacherPhone: '9876500017', status: 'Submitted', submittedAt: '2025-03-01T08:50:00', studentCount: 1 },
+  { classSection: '2B', className: 'Class 2B', teacherName: 'Ananya Iyer', teacherPhone: '9876500017', status: 'Pending', studentCount: 1 },
+  { classSection: '3A', className: 'Class 3A', teacherName: 'Mohan Krishnan', teacherPhone: '9876500018', status: 'Submitted', submittedAt: '2025-03-01T08:55:00', studentCount: 1 },
+  { classSection: '3B', className: 'Class 3B', teacherName: 'Mohan Krishnan', teacherPhone: '9876500018', status: 'Pending', studentCount: 1 },
+  { classSection: '4A', className: 'Class 4A', teacherName: 'Mohan Krishnan', teacherPhone: '9876500018', status: 'Submitted', submittedAt: '2025-03-01T09:00:00', studentCount: 1 },
+  { classSection: '4B', className: 'Class 4B', teacherName: 'Mohan Krishnan', teacherPhone: '9876500018', status: 'Pending', studentCount: 1 },
+  { classSection: '5A', className: 'Class 5A', teacherName: 'Farah Siddiqui', teacherPhone: '9876500019', status: 'Submitted', submittedAt: '2025-03-01T09:05:00', studentCount: 1 },
+  { classSection: '5B', className: 'Class 5B', teacherName: 'Farah Siddiqui', teacherPhone: '9876500019', status: 'Pending', studentCount: 1 },
+  { classSection: '6A', className: 'Class 6A', teacherName: 'Farah Siddiqui', teacherPhone: '9876500019', status: 'Submitted', submittedAt: '2025-03-01T09:10:00', studentCount: 1 },
+  { classSection: '6B', className: 'Class 6B', teacherName: 'Farah Siddiqui', teacherPhone: '9876500019', status: 'Pending', studentCount: 1 },
+  { classSection: '7A', className: 'Class 7A', teacherName: 'Meena Kumari', teacherPhone: '9876500005', status: 'Submitted', submittedAt: '2025-03-01T09:15:00', studentCount: 2 },
+  { classSection: '7B', className: 'Class 7B', teacherName: 'Ramesh Yadav', teacherPhone: '9876500010', status: 'Submitted', submittedAt: '2025-03-01T09:20:00', studentCount: 2 },
+  { classSection: '8A', className: 'Class 8A', teacherName: 'Sunita Devi', teacherPhone: '9876500003', status: 'Submitted', submittedAt: '2025-03-01T09:25:00', studentCount: 3 },
+  { classSection: '8B', className: 'Class 8B', teacherName: 'Kavitha Nair', teacherPhone: '9876500009', status: 'Pending', studentCount: 3 },
+  { classSection: '9A', className: 'Class 9A', teacherName: 'Priya Sharma', teacherPhone: '9876500001', status: 'Submitted', submittedAt: '2025-03-01T08:45:00', studentCount: 5 },
+  { classSection: '9B', className: 'Class 9B', teacherName: 'Leena D Souza', teacherPhone: '9876500015', status: 'Pending', studentCount: 2 },
+  { classSection: '10A', className: 'Class 10A', teacherName: 'Amit Verma', teacherPhone: '9876500002', status: 'Submitted', submittedAt: '2025-03-01T08:40:00', studentCount: 3 },
+  { classSection: '10B', className: 'Class 10B', teacherName: 'Nisha Menon', teacherPhone: '9876500013', status: 'Pending', studentCount: 3 },
+  { classSection: '11A', className: 'Class 11A', teacherName: 'Vijay Kumar', teacherPhone: '9876500006', status: 'Submitted', submittedAt: '2025-03-01T08:35:00', studentCount: 2 },
+  { classSection: '11B', className: 'Class 11B', teacherName: 'Pooja Bhatt', teacherPhone: '9876500011', status: 'Submitted', submittedAt: '2025-03-01T08:30:00', studentCount: 2 },
+  { classSection: '12A', className: 'Class 12A', teacherName: 'Suresh Raina', teacherPhone: '9876500008', status: 'Submitted', submittedAt: '2025-03-01T08:25:00', studentCount: 4 },
+  { classSection: '12B', className: 'Class 12B', teacherName: 'Deepak Hooda', teacherPhone: '9876500012', status: 'Submitted', submittedAt: '2025-03-01T08:20:00', studentCount: 3 },
+];
+
+export interface OverrideAuditEntry {
+  id: string;
+  studentId: string;
+  studentName: string;
+  classSection: string;
+  date: string;
+  originalStatus: string;
+  newStatus: string;
+  reason: string;
+  overriddenBy: string;
+  overriddenAt: string;
+}
+
+export const overrideAuditLog: OverrideAuditEntry[] = [
+  { id: 'ov001', studentId: 's001', studentName: 'Arjun Singh', classSection: '9A', date: '2025-02-28', originalStatus: 'Absent', newStatus: 'Present', reason: 'Parent called - was present, marked absent by mistake', overriddenBy: 'Ravi Kumar (Admin)', overriddenAt: '2025-02-28T14:30:00' },
+  { id: 'ov002', studentId: 's004', studentName: 'Ananya Gupta', classSection: '9B', date: '2025-02-27', originalStatus: 'Present', newStatus: 'Absent', reason: 'Teacher requested correction - student left early', overriddenBy: 'Ravi Kumar (Admin)', overriddenAt: '2025-02-27T16:00:00' },
+  { id: 'ov003', studentId: 's009', studentName: 'Rahul Joshi', classSection: '10B', date: '2025-02-26', originalStatus: 'Late', newStatus: 'Present', reason: 'Student arrived on time, attendance system error', overriddenBy: 'Ravi Kumar (Admin)', overriddenAt: '2025-02-26T11:15:00' },
+];
+
+export interface DailyAttendanceStat {
+  totalStudents: number;
+  present: number;
+  absent: number;
+  late: number;
+  notTaken: number;
+  classesSubmitted: number;
+  classesPending: number;
+  totalClasses: number;
+}
+
+export const dailyAttendanceStats: DailyAttendanceStat = {
+  totalStudents: 47,
+  present: 38,
+  absent: 4,
+  late: 3,
+  notTaken: 2,
+  classesSubmitted: 16,
+  classesPending: 8,
+  totalClasses: 24,
+};

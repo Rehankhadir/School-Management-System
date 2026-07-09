@@ -1,16 +1,47 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { marks, attendanceRecords, fees, type Student } from '@/data/mockData';
 import { useAuth } from '@/context/AuthContext';
 import { getStudent } from '@/services/studentService';
+import { getAttendanceByStudent } from '@/services/schoolDataService';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs } from '@/components/ui/Tabs';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Mail, Phone, MapPin, Calendar, BookOpen } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Calendar, BookOpen, RefreshCw } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const cs: React.CSSProperties = { backgroundColor: 'white', borderRadius: 16, border: '1px solid #f1f5f9', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' };
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function buildMonths() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const currentMonth = now.getMonth();
+  return Array.from({ length: currentMonth + 1 }, (_, i) => ({
+    label: MONTH_LABELS[i],
+    name: `${MONTH_NAMES[i]} ${year}`,
+    days: getDaysInMonth(year, i),
+    year,
+    month: i,
+  }));
+}
+
+function isFutureDay(year: number, month: number, day: number) {
+  const now = new Date();
+  const date = new Date(year, month, day);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return date > today;
+}
+
+type CalendarDayStatus = 'Present' | 'Absent' | 'Late' | 'Not Taken';
 
 export function StudentDetailPage() {
   const { id } = useParams();
@@ -19,25 +50,78 @@ export function StudentDetailPage() {
   const [activeTab, setActiveTab] = useState('profile');
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [attendRecords, setAttendRecords] = useState<{ day: number; status: CalendarDayStatus }[] | null>(null);
+  const [attendLoading, setAttendLoading] = useState(false);
+
+  const months = buildMonths();
+  const { year: selYear, month: selMonthNum, days: selDays } = months[selectedMonth];
 
   useEffect(() => {
     let active = true;
-
     async function loadStudent() {
-      if (!id) {
-        setLoading(false);
-        return;
-      }
+      if (!id) { setLoading(false); return; }
       setLoading(true);
       const { data } = await getStudent(id);
       if (!active) return;
       setStudent(data);
       setLoading(false);
     }
-
     loadStudent();
     return () => { active = false; };
   }, [id]);
+
+  const fetchAttendance = useCallback(() => {
+    if (!student) return;
+    setAttendLoading(true);
+    const startDate = `${selYear}-${String(selMonthNum + 1).padStart(2, '0')}-01`;
+    const endDate = `${selYear}-${String(selMonthNum + 1).padStart(2, '0')}-${String(selDays).padStart(2, '0')}`;
+
+    if (!isSupabaseConfigured) {
+      const mockRecords = attendanceRecords.filter((a) => a.studentId === student.id);
+      const recordsByDay = new Map(mockRecords.map((r) => {
+        const day = Number(r.date.split('-')[2]);
+        return [day, r.status as CalendarDayStatus];
+      }));
+      setAttendRecords(Array.from({ length: selDays }, (_, i) => ({
+        day: i + 1,
+        status: recordsByDay.get(i + 1) || 'Not Taken',
+      })));
+      setAttendLoading(false);
+      return;
+    }
+
+    getAttendanceByStudent(student.id, startDate, endDate).then(({ data }) => {
+      if (data && data.length > 0) {
+        const recordsByDay = new Map<number, CalendarDayStatus>(data.map((r: { date: string; status: string }) => {
+          const day = Number(r.date.split('-')[2]);
+          return [day, r.status as CalendarDayStatus] as const;
+        }));
+        setAttendRecords(Array.from({ length: selDays }, (_, i) => ({
+          day: i + 1,
+          status: recordsByDay.get(i + 1) ?? 'Not Taken' as CalendarDayStatus,
+        })));
+      } else {
+        setAttendRecords(Array.from({ length: selDays }, (_, i) => ({
+          day: i + 1,
+          status: 'Not Taken' as CalendarDayStatus,
+        })));
+      }
+    }).catch(() => {
+      setAttendRecords(Array.from({ length: selDays }, (_, i) => ({
+        day: i + 1,
+        status: 'Not Taken' as CalendarDayStatus,
+      })));
+    }).finally(() => setAttendLoading(false));
+  }, [student, selYear, selMonthNum, selDays]);
+
+  useEffect(() => {
+    if (activeTab === 'attendance' && student) fetchAttendance();
+  }, [activeTab, student, fetchAttendance]);
+
+  useEffect(() => {
+    if (activeTab === 'attendance' && student) fetchAttendance();
+  }, [selectedMonth]);
 
   if (loading) {
     return (
@@ -71,12 +155,15 @@ export function StudentDetailPage() {
   }
 
   const sMarks = marks.filter((m) => m.studentId === id);
-  const sAttend = attendanceRecords.filter((a) => a.studentId === id);
   const sFee = fees.find((f) => f.studentId === id);
 
-  const presentCount = sAttend.filter((a) => a.status === 'Present').length;
-  const absentCount = sAttend.filter((a) => a.status === 'Absent').length;
-  const lateCount = sAttend.filter((a) => a.status === 'Late').length;
+  const attendSummary = attendRecords?.reduce((acc, row) => {
+    if (!isFutureDay(selYear, selMonthNum, row.day) && new Date(selYear, selMonthNum, row.day).getDay() !== 0) {
+      if (row.status === 'Not Taken') acc['Not Taken'] += 1;
+      else acc[row.status] += 1;
+    }
+    return acc;
+  }, { Present: 0, Absent: 0, Late: 0, 'Not Taken': 0 } as Record<'Present' | 'Absent' | 'Late' | 'Not Taken', number>);
 
   const examPerf = ['Unit Test 1', 'Unit Test 2', 'Mid Term'].map((exam) => {
     const em = sMarks.filter((m) => m.exam === exam);
@@ -170,39 +257,61 @@ export function StudentDetailPage() {
 
         {activeTab === 'attendance' && (
           <div>
-            <div className="responsive-grid-3" style={{ display: 'grid', gap: 16, marginBottom: 24 }}>
-              {[
-                { val: presentCount, label: 'Present', color: '#059669' },
-                { val: absentCount, label: 'Absent', color: '#e11d48' },
-                { val: lateCount, label: 'Late', color: '#d97706' },
-              ].map((s) => (
-                <div key={s.label} style={{ ...cs, padding: 16, textAlign: 'center' }}>
-                  <div style={{ fontSize: 28, fontWeight: 700, color: s.color }}>{s.val}</div>
-                  <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>{s.label}</div>
-                </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              {months.map((m, index) => (
+                <button key={m.label} onClick={() => setSelectedMonth(index)} style={{ minHeight: 34, minWidth: 52, padding: '6px 12px', borderRadius: 999, border: `1px solid ${selectedMonth === index ? '#4f46e5' : '#e5e7eb'}`, backgroundColor: selectedMonth === index ? '#4f46e5' : 'white', color: selectedMonth === index ? 'white' : '#4b5563', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>{m.label}</button>
               ))}
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#4f46e5' }}>{months[selectedMonth].year}</span>
+              <button onClick={fetchAttendance} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: 12, fontWeight: 500, color: '#4f46e5', backgroundColor: '#eef2ff', borderRadius: 8, border: 'none', cursor: 'pointer', marginLeft: 'auto' }}><RefreshCw size={12} className={attendLoading ? 'animate-spin' : ''} /> Refresh</button>
             </div>
-            <div style={{ ...cs, padding: 24 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>February 2025</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-                  <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 500, color: '#9ca3af', padding: 4 }}>{d}</div>
+
+            {attendSummary && (
+              <div className="responsive-grid-3" style={{ display: 'grid', gap: 16, marginBottom: 24 }}>
+                {[
+                  { val: attendSummary.Present, label: 'Present', color: '#059669', bg: '#ecfdf5' },
+                  { val: attendSummary.Absent, label: 'Absent', color: '#e11d48', bg: '#fff1f2' },
+                  { val: attendSummary.Late, label: 'Late', color: '#d97706', bg: '#fff7ed' },
+                  { val: attendSummary['Not Taken'], label: 'Not Taken', color: '#6b7280', bg: '#f3f4f6' },
+                ].map((s) => (
+                  <div key={s.label} style={{ ...cs, padding: 16, textAlign: 'center', backgroundColor: s.bg }}>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: s.color }}>{s.val}</div>
+                    <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>{s.label}</div>
+                  </div>
                 ))}
-                {Array.from({ length: 6 }).map((_, i) => <div key={`e${i}`} />)}
-                {Array.from({ length: 28 }, (_, i) => {
-                  const date = `2025-02-${String(i + 1).padStart(2, '0')}`;
-                  const record = sAttend.find((a) => a.date === date);
-                  const dayOfWeek = new Date(date).getDay();
-                  const isSunday = dayOfWeek === 0;
-                  const bgColor = isSunday ? '#f3f4f6' : !record ? '#f9fafb' : record.status === 'Present' ? '#d1fae5' : record.status === 'Absent' ? '#ffe4e6' : '#fef3c7';
-                  const textColor = isSunday ? '#9ca3af' : !record ? '#9ca3af' : record.status === 'Present' ? '#065f46' : record.status === 'Absent' ? '#9f1239' : '#92400e';
-                  return (
-                    <div key={i} style={{ aspectRatio: '1', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 500, backgroundColor: bgColor, color: textColor }} title={record?.status || ''}>{i + 1}</div>
-                  );
-                })}
               </div>
-              <div style={{ display: 'flex', gap: 16, marginTop: 16, justifyContent: 'center' }}>
-                {[{ c: '#d1fae5', l: 'Present' }, { c: '#ffe4e6', l: 'Absent' }, { c: '#fef3c7', l: 'Late' }].map((x) => (
+            )}
+
+            <div style={{ ...cs, padding: 24 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>{months[selectedMonth].name}</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 8 }}>
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                  <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', padding: 4 }}>{d}</div>
+                ))}
+              </div>
+              {attendRecords ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
+                  {(() => {
+                    const firstDay = new Date(selYear, selMonthNum, 1).getDay();
+                    const blanks = Array.from({ length: firstDay }, (_, i) => <div key={`e${i}`} />);
+                    const days = attendRecords.map((row) => {
+                      const future = isFutureDay(selYear, selMonthNum, row.day);
+                      const sunday = new Date(selYear, selMonthNum, row.day).getDay() === 0;
+                      const greyed = future || sunday;
+                      const notTaken = !greyed && row.status === 'Not Taken';
+                      const bgColor = greyed ? '#f3f4f6' : notTaken ? '#f3f4f6' : row.status === 'Present' ? '#d1fae5' : row.status === 'Absent' ? '#ffe4e6' : '#fef3c7';
+                      const textColor = greyed ? '#9ca3af' : notTaken ? '#9ca3af' : row.status === 'Present' ? '#065f46' : row.status === 'Absent' ? '#9f1239' : '#92400e';
+                      return (
+                        <div key={row.day} title={notTaken ? 'Attendance not taken' : row.status} style={{ aspectRatio: '1', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 500, backgroundColor: bgColor, color: textColor }}>{row.day}</div>
+                      );
+                    });
+                    return [...blanks, ...days];
+                  })()}
+                </div>
+              ) : (
+                <div style={{ padding: 32, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>{attendLoading ? 'Loading attendance...' : 'No data'}</div>
+              )}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 16, justifyContent: 'center' }}>
+                {[{ c: '#d1fae5', l: 'Present' }, { c: '#ffe4e6', l: 'Absent' }, { c: '#fef3c7', l: 'Late' }, { c: '#f3f4f6', l: 'Not Taken' }].map((x) => (
                   <div key={x.l} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 4, backgroundColor: x.c }} /><span style={{ fontSize: 12, color: '#6b7280' }}>{x.l}</span></div>
                 ))}
               </div>

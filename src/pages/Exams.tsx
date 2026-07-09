@@ -183,7 +183,7 @@ export function ExamsPage() {
                             <div style={{ color: '#111827', fontSize: 16, fontWeight: 800 }}>{exam.name}</div>
                             <div style={{ color: '#64748b', fontSize: 13, fontWeight: 600, marginTop: 4 }}>{exam.subject ? `${exam.subject} paper` : 'Subject-wise exam schedule'}</div>
                           </div>
-                          <Badge variant="primary">Class {exam.class}{exam.section || ''}</Badge>
+                          <Badge variant="indigo">Class {exam.class}{exam.section || ''}</Badge>
                         </div>
 
                         <div style={{ display: 'grid', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid #f1f5f9' }}>

@@ -1621,6 +1621,302 @@ function TeacherFormSheet({ visible, onClose, onSave }: { visible: boolean; onCl
   );
 }
 
+function AdminOverviewTab({ students, onNavigate }: { students: Student[]; onNavigate?: (tab: string) => void }) {
+  const submitted = mockPendingSubmissions.filter((p) => p.status === 'Submitted').length;
+  const pending = mockPendingSubmissions.filter((p) => p.status === 'Pending').length;
+  const lowAtt = students.filter((s) => s.attendancePercent < 75).length;
+
+  return (
+    <View style={styles.stack}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+        {[
+          { label: 'Students', value: String(students.length), icon: 'account-group' as any, color: '#4f46e5', bg: '#eef2ff' },
+          { label: 'Submitted', value: String(submitted), icon: 'check-circle' as any, color: '#16a34a', bg: '#f0fdf4' },
+          { label: 'Pending', value: String(pending), icon: 'clock-outline' as any, color: '#ea580c', bg: '#fff7ed' },
+          { label: 'Low Att.', value: String(lowAtt), icon: 'alert-circle' as any, color: '#dc2626', bg: '#fef2f2' },
+        ].map((card) => (
+          <View key={card.label} style={{ flex: 1, minWidth: '45%', flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, backgroundColor: 'white', borderWidth: 1, borderColor: '#f1f5f9' }}>
+            <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: card.bg, alignItems: 'center', justifyContent: 'center' }}>
+              <MaterialCommunityIcons name={card.icon} size={20} color={card.color} />
+            </View>
+            <View>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827' }}>{card.value}</Text>
+              <Text style={{ fontSize: 11, color: '#6b7280', fontWeight: '500' }}>{card.label}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+
+      <Card title="Submission Status">
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {mockPendingSubmissions.map((cls) => (
+            <View key={cls.classSection} style={{ paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, backgroundColor: cls.status === 'Submitted' ? '#f0fdf4' : '#fef2f2', alignItems: 'center', minWidth: 56 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: cls.status === 'Submitted' ? '#16a34a' : '#ef4444' }}>{cls.classSection}</Text>
+              <MaterialCommunityIcons name={cls.status === 'Submitted' ? 'check-circle' : 'clock-outline'} size={14} color={cls.status === 'Submitted' ? '#22c55e' : '#ea580c'} />
+            </View>
+          ))}
+        </View>
+        <View style={{ flexDirection: 'row', gap: 16, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f3f4f6' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: '#dcfce7' }} />
+            <Text style={{ fontSize: 12, color: '#6b7280' }}>{submitted} Submitted</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: '#fee2e2' }} />
+            <Text style={{ fontSize: 12, color: '#6b7280' }}>{pending} Pending</Text>
+          </View>
+        </View>
+      </Card>
+
+      <Card title="Quick Actions">
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+          {[
+            { label: 'Chase Teachers', subtitle: `${pending} pending`, icon: 'send' as any, color: '#ea580c', bg: '#fff7ed', tab: 'pending' },
+            { label: 'Override', subtitle: 'Correct records', icon: 'shield-checkmark' as any, color: '#4f46e5', bg: '#eef2ff', tab: 'override' },
+            { label: 'Absentee Alerts', subtitle: `${lowAtt} flagged`, icon: 'bell-alert' as any, color: '#dc2626', bg: '#fef2f2', tab: 'alerts' },
+          ].map((action) => (
+            <Pressable key={action.label} style={{ flex: 1, minWidth: '45%', flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, backgroundColor: 'white', borderWidth: 1, borderColor: '#f1f5f9' }} onPress={() => onNavigate?.(action.tab)}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: action.bg, alignItems: 'center', justifyContent: 'center' }}>
+                <MaterialCommunityIcons name={action.icon} size={18} color={action.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#111827' }}>{action.label}</Text>
+                <Text style={{ fontSize: 11, color: '#6b7280' }}>{action.subtitle}</Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      </Card>
+
+      <Card title="All Classes">
+        {mockPendingSubmissions.map((cls) => (
+          <View key={cls.classSection} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>{cls.className}</Text>
+              <Text style={{ fontSize: 12, color: '#6b7280' }}>{cls.teacherName} · {cls.studentCount} students</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Pressable
+                onPress={() => Linking.openURL(`tel:${cls.teacherPhone}`)}
+                style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Ionicons name="call" size={14} color="#16a34a" />
+              </Pressable>
+              <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                <View style={{ paddingVertical: 3, paddingHorizontal: 8, borderRadius: 6, backgroundColor: cls.status === 'Submitted' ? '#f0fdf4' : '#fef2f2' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: cls.status === 'Submitted' ? '#16a34a' : '#ef4444' }}>{cls.status}</Text>
+                </View>
+                {cls.submittedAt && (
+                  <Text style={{ fontSize: 10, color: '#9ca3af' }}>{new Date(cls.submittedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</Text>
+                )}
+              </View>
+            </View>
+          </View>
+        ))}
+      </Card>
+    </View>
+  );
+}
+
+function AdminPendingTab() {
+  const pendingList = mockPendingSubmissions.filter((p) => p.status === 'Pending');
+  const submittedList = mockPendingSubmissions.filter((p) => p.status === 'Submitted');
+
+  return (
+    <View style={styles.stack}>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={[styles.metric, { flex: 1, borderLeftWidth: 3, borderLeftColor: '#22c55e' }]}>
+          <Text style={styles.metricLabel}>Submitted</Text>
+          <Text style={[styles.metricValue, { color: '#22c55e' }]}>{submittedList.length}</Text>
+        </View>
+        <View style={[styles.metric, { flex: 1, borderLeftWidth: 3, borderLeftColor: '#ef4444' }]}>
+          <Text style={styles.metricLabel}>Pending</Text>
+          <Text style={[styles.metricValue, { color: '#ef4444' }]}>{pendingList.length}</Text>
+        </View>
+      </View>
+      <Card title="Pending Submissions">
+        {pendingList.map((cls) => (
+          <View key={cls.classSection} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>{cls.className}</Text>
+                <Text style={{ fontSize: 12, color: '#6b7280' }}>{cls.teacherName} · {cls.studentCount} students</Text>
+              </View>
+              <Pressable
+                onPress={() => Linking.openURL(`tel:${cls.teacherPhone}`)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0' }}
+              >
+                <Ionicons name="call" size={14} color="#16a34a" />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#16a34a' }}>Call</Text>
+              </Pressable>
+            </View>
+          </View>
+        ))}
+      </Card>
+      <Card title="Submitted Classes">
+        {submittedList.map((cls) => (
+          <InfoRow key={cls.classSection} title={cls.className} subtitle={`${cls.teacherName} · ${cls.submittedAt ? new Date(cls.submittedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''}`} right="Done" />
+        ))}
+      </Card>
+    </View>
+  );
+}
+
+function AdminOverrideTab({ students, user }: { students: Student[]; user: User }) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [showAuditLog, setShowAuditLog] = useState(false);
+  const [auditLog, setAuditLog] = useState(mockOverrideAuditLog);
+  const [overrideStatus, setOverrideStatus] = useState<'Present' | 'Absent' | 'Late'>('Present');
+  const [overrideReason, setOverrideReason] = useState('');
+  const [showForm, setShowForm] = useState(false);
+
+  const filtered = useMemo(() => {
+    if (!searchQuery) return [];
+    const q = searchQuery.toLowerCase();
+    return students.filter((s) => s.name.toLowerCase().includes(q) || s.rollNo.includes(q) || `${s.class}${s.section}`.toLowerCase().includes(q)).slice(0, 8);
+  }, [students, searchQuery]);
+
+  return (
+    <View style={styles.stack}>
+      <Card title="Search Student">
+        <View style={styles.loginInputWrap}>
+          <Ionicons name="search-outline" size={18} color="#9ca3af" />
+          <TextInput style={styles.loginInput} value={searchQuery} onChangeText={setSearchQuery} placeholder="Search by name, roll no, or class..." placeholderTextColor="#9ca3af" />
+        </View>
+        {filtered.map((s) => (
+          <Pressable key={s.id} onPress={() => { setSelectedStudent(s); setSearchQuery(''); setShowForm(false); }} style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
+            <Text style={{ fontSize: 14, fontWeight: '500', color: '#111827' }}>{s.name}</Text>
+            <Text style={{ fontSize: 12, color: '#6b7280' }}>Class {s.class}{s.section} · Roll {s.rollNo}</Text>
+          </Pressable>
+        ))}
+      </Card>
+      {selectedStudent && (
+        <Card title={selectedStudent.name}>
+          <Text style={{ fontSize: 12, color: '#6b7280', marginBottom: 8 }}>Class {selectedStudent.class}{selectedStudent.section} · Roll {selectedStudent.rollNo} · {selectedStudent.attendancePercent}% attendance</Text>
+          <Text style={{ fontSize: 13, color: '#374151', marginBottom: 8 }}>Tap a day on the calendar to override attendance.</Text>
+          <Pressable style={[styles.fullWidthButton, { backgroundColor: '#4f46e5' }]} onPress={() => setShowForm(!showForm)}>
+            <Ionicons name="create-outline" size={18} color="#fff" />
+            <Text style={styles.primaryText}>{showForm ? 'Cancel' : 'Override Attendance'}</Text>
+          </Pressable>
+          {showForm && (
+            <View style={{ marginTop: 12 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 }}>New Status</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                {(['Present', 'Absent', 'Late'] as const).map((s) => (
+                  <Pressable key={s} style={{ paddingVertical: 6, paddingHorizontal: 14, borderRadius: 8, backgroundColor: overrideStatus === s ? (s === 'Present' ? '#dcfce7' : s === 'Absent' ? '#fee2e2' : '#fef3c7') : '#f9fafb', borderWidth: 1, borderColor: overrideStatus === s ? (s === 'Present' ? '#22c55e' : s === 'Absent' ? '#ef4444' : '#f59e0b') : '#e5e7eb' }} onPress={() => setOverrideStatus(s)}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: overrideStatus === s ? (s === 'Present' ? '#166534' : s === 'Absent' ? '#991b1b' : '#92400e') : '#6b7280' }}>{s}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 }}>Reason</Text>
+              <TextInput style={[styles.loginInput, { minHeight: 60 }]} value={overrideReason} onChangeText={setOverrideReason} multiline placeholder="e.g., Parent called - was present" placeholderTextColor="#9ca3af" />
+              <Pressable style={[styles.fullWidthButton, { backgroundColor: overrideReason ? '#4f46e5' : '#e5e7eb', marginTop: 12 }]} onPress={() => {
+                if (!overrideReason || !selectedStudent) return;
+                setAuditLog((prev) => [{ id: `ov-${Date.now()}`, studentId: selectedStudent.id, studentName: selectedStudent.name, classSection: `${selectedStudent.class}${selectedStudent.section}`, date: new Date().toISOString().slice(0, 10), originalStatus: 'Not Taken', newStatus: overrideStatus, reason: overrideReason, overriddenBy: user.name, overriddenAt: new Date().toISOString() }, ...prev]);
+                setShowForm(false);
+                setOverrideReason('');
+                Alert.alert('Override saved', `${selectedStudent.name}'s attendance changed to ${overrideStatus}.`);
+              }}>
+                <Text style={styles.primaryText}>Save Override</Text>
+              </Pressable>
+            </View>
+          )}
+        </Card>
+      )}
+      <Card title="Override Audit Log">
+        <Pressable onPress={() => setShowAuditLog(!showAuditLog)}>
+          <Text style={{ fontSize: 13, color: '#4f46e5', fontWeight: '500' }}>{showAuditLog ? 'Hide' : 'Show'} Log</Text>
+        </Pressable>
+        {showAuditLog && auditLog.map((entry) => (
+          <View key={entry.id} style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#111827' }}>{entry.studentName} · Class {entry.classSection}</Text>
+            <Text style={{ fontSize: 12, color: '#6b7280' }}>{entry.originalStatus} → {entry.newStatus} on {entry.date}</Text>
+            <Text style={{ fontSize: 12, color: '#6b7280', fontStyle: 'italic' }}>"{entry.reason}"</Text>
+            <Text style={{ fontSize: 11, color: '#9ca3af' }}>by {entry.overriddenBy}</Text>
+          </View>
+        ))}
+      </Card>
+    </View>
+  );
+}
+
+function AdminAlertsTab({ students }: { students: Student[] }) {
+  const lowStudents = useMemo(() => students.filter((s) => s.attendancePercent < 75).sort((a, b) => a.attendancePercent - b.attendancePercent), [students]);
+  const critical = students.filter((s) => s.attendancePercent < 60).length;
+  const warning = students.filter((s) => s.attendancePercent >= 60 && s.attendancePercent < 75).length;
+
+  return (
+    <View style={styles.stack}>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={[styles.metric, { flex: 1, borderLeftWidth: 3, borderLeftColor: '#dc2626' }]}>
+          <Text style={styles.metricLabel}>Critical (&lt;60%)</Text>
+          <Text style={[styles.metricValue, { color: '#dc2626' }]}>{critical}</Text>
+        </View>
+        <View style={[styles.metric, { flex: 1, borderLeftWidth: 3, borderLeftColor: '#ea580c' }]}>
+          <Text style={styles.metricLabel}>Warning (60-75%)</Text>
+          <Text style={[styles.metricValue, { color: '#ea580c' }]}>{warning}</Text>
+        </View>
+      </View>
+      <Card title="Students Below 75%">
+        {lowStudents.map((s) => (
+          <View key={s.id} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '500', color: '#111827' }}>{s.name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                <Text style={{ fontSize: 12, color: '#6b7280' }}>Parent: {s.guardianName}</Text>
+                {s.guardianPhone ? (
+                  <Pressable
+                    onPress={() => Linking.openURL(`tel:${s.guardianPhone}`)}
+                    style={{ width: 22, height: 22, borderRadius: 6, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Ionicons name="call" size={12} color="#16a34a" />
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+            <View style={{ backgroundColor: s.attendancePercent < 60 ? '#fee2e2' : '#fff7ed', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+              <Text style={{ fontWeight: '700', fontSize: 13, color: s.attendancePercent < 60 ? '#dc2626' : '#ea580c' }}>{s.attendancePercent}%</Text>
+            </View>
+          </View>
+        ))}
+      </Card>
+    </View>
+  );
+}
+
+const mockPendingSubmissions = [
+  { classSection: '1A', className: 'Class 1A', teacherName: 'Ananya Iyer', teacherPhone: '9876500017', status: 'Submitted' as const, submittedAt: '2025-03-01T08:45:00', studentCount: 3 },
+  { classSection: '1B', className: 'Class 1B', teacherName: 'Ananya Iyer', teacherPhone: '9876500017', status: 'Pending' as const, studentCount: 2 },
+  { classSection: '2A', className: 'Class 2A', teacherName: 'Ananya Iyer', teacherPhone: '9876500017', status: 'Submitted' as const, submittedAt: '2025-03-01T08:50:00', studentCount: 1 },
+  { classSection: '2B', className: 'Class 2B', teacherName: 'Ananya Iyer', teacherPhone: '9876500017', status: 'Pending' as const, studentCount: 1 },
+  { classSection: '3A', className: 'Class 3A', teacherName: 'Mohan Krishnan', teacherPhone: '9876500018', status: 'Submitted' as const, submittedAt: '2025-03-01T08:55:00', studentCount: 1 },
+  { classSection: '3B', className: 'Class 3B', teacherName: 'Mohan Krishnan', teacherPhone: '9876500018', status: 'Pending' as const, studentCount: 1 },
+  { classSection: '4A', className: 'Class 4A', teacherName: 'Mohan Krishnan', teacherPhone: '9876500018', status: 'Submitted' as const, submittedAt: '2025-03-01T09:00:00', studentCount: 1 },
+  { classSection: '4B', className: 'Class 4B', teacherName: 'Mohan Krishnan', teacherPhone: '9876500018', status: 'Pending' as const, studentCount: 1 },
+  { classSection: '5A', className: 'Class 5A', teacherName: 'Farah Siddiqui', teacherPhone: '9876500019', status: 'Submitted' as const, submittedAt: '2025-03-01T09:05:00', studentCount: 1 },
+  { classSection: '5B', className: 'Class 5B', teacherName: 'Farah Siddiqui', teacherPhone: '9876500019', status: 'Pending' as const, studentCount: 1 },
+  { classSection: '6A', className: 'Class 6A', teacherName: 'Farah Siddiqui', teacherPhone: '9876500019', status: 'Submitted' as const, submittedAt: '2025-03-01T09:10:00', studentCount: 1 },
+  { classSection: '6B', className: 'Class 6B', teacherName: 'Farah Siddiqui', teacherPhone: '9876500019', status: 'Pending' as const, studentCount: 1 },
+  { classSection: '7A', className: 'Class 7A', teacherName: 'Meena Kumari', teacherPhone: '9876500005', status: 'Submitted' as const, submittedAt: '2025-03-01T09:15:00', studentCount: 2 },
+  { classSection: '7B', className: 'Class 7B', teacherName: 'Ramesh Yadav', teacherPhone: '9876500010', status: 'Submitted' as const, submittedAt: '2025-03-01T09:20:00', studentCount: 2 },
+  { classSection: '8A', className: 'Class 8A', teacherName: 'Sunita Devi', teacherPhone: '9876500003', status: 'Submitted' as const, submittedAt: '2025-03-01T09:25:00', studentCount: 3 },
+  { classSection: '8B', className: 'Class 8B', teacherName: 'Kavitha Nair', teacherPhone: '9876500009', status: 'Pending' as const, studentCount: 3 },
+  { classSection: '9A', className: 'Class 9A', teacherName: 'Priya Sharma', teacherPhone: '9876500001', status: 'Submitted' as const, submittedAt: '2025-03-01T08:45:00', studentCount: 5 },
+  { classSection: '9B', className: 'Class 9B', teacherName: 'Leena D Souza', teacherPhone: '9876500015', status: 'Pending' as const, studentCount: 2 },
+  { classSection: '10A', className: 'Class 10A', teacherName: 'Amit Verma', teacherPhone: '9876500002', status: 'Submitted' as const, submittedAt: '2025-03-01T08:40:00', studentCount: 3 },
+  { classSection: '10B', className: 'Class 10B', teacherName: 'Nisha Menon', teacherPhone: '9876500013', status: 'Pending' as const, studentCount: 3 },
+  { classSection: '11A', className: 'Class 11A', teacherName: 'Vijay Kumar', teacherPhone: '9876500006', status: 'Submitted' as const, submittedAt: '2025-03-01T08:35:00', studentCount: 2 },
+  { classSection: '11B', className: 'Class 11B', teacherName: 'Pooja Bhatt', teacherPhone: '9876500011', status: 'Submitted' as const, submittedAt: '2025-03-01T08:30:00', studentCount: 2 },
+  { classSection: '12A', className: 'Class 12A', teacherName: 'Suresh Raina', teacherPhone: '9876500008', status: 'Submitted' as const, submittedAt: '2025-03-01T08:25:00', studentCount: 4 },
+  { classSection: '12B', className: 'Class 12B', teacherName: 'Deepak Hooda', teacherPhone: '9876500012', status: 'Submitted' as const, submittedAt: '2025-03-01T08:20:00', studentCount: 3 },
+];
+
+const mockOverrideAuditLog = [
+  { id: 'ov001', studentId: 's001', studentName: 'Arjun Singh', classSection: '9A', date: '2025-02-28', originalStatus: 'Absent', newStatus: 'Present', reason: 'Parent called - was present, marked absent by mistake', overriddenBy: 'Ravi Kumar', overriddenAt: '2025-02-28T14:30:00' },
+  { id: 'ov002', studentId: 's004', studentName: 'Ananya Gupta', classSection: '9B', date: '2025-02-27', originalStatus: 'Present', newStatus: 'Absent', reason: 'Teacher requested correction - student left early', overriddenBy: 'Ravi Kumar', overriddenAt: '2025-02-27T16:00:00' },
+];
+
 function AttendanceScreen({ user, students, setStudents, teachers, setSessionNotifications }: RouteProps) {
   const [klass, setKlass] = useState('');
   const [section, setSection] = useState('');
@@ -1629,6 +1925,10 @@ function AttendanceScreen({ user, students, setStudents, teachers, setSessionNot
   const [filterOpen, setFilterOpen] = useState(false);
   const [submissionOpen, setSubmissionOpen] = useState(false);
   const [lastSubmission, setLastSubmission] = useState('');
+  const [loaded, setLoaded] = useState(false);
+  const [attendance, setAttendance] = useState<Record<string, string>>({});
+  const isAdmin = user.role === 'admin';
+  const [adminTab, setAdminTab] = useState('overview');
   const currentTeacher = teachers.find((teacher) => teacher.email === user.email || teacher.name === user.name);
   const teacherClassOptions = useMemo(() => currentTeacher ? parseAssignedClasses(currentTeacher.classAssigned) : [], [currentTeacher]);
   const visibleStudents = user.role === 'parent'
@@ -1709,6 +2009,113 @@ function AttendanceScreen({ user, students, setStudents, teachers, setSessionNot
     setSubmissionOpen(false);
     Alert.alert('Attendance submitted', `Class ${meta.klass}${meta.section} attendance has been recorded.`);
   };
+
+  const adminTabs = [
+    { id: 'overview', label: 'Overview', icon: 'view-dashboard-outline' as any },
+    { id: 'mark', label: 'Mark', icon: 'checkbox-marked-circle-outline' as any },
+    { id: 'pending', label: 'Pending', icon: 'clock-outline' as any },
+    { id: 'override', label: 'Override', icon: 'shield-edit-outline' as any },
+    { id: 'alerts', label: 'Absentees', icon: 'account-alert-outline' as any },
+  ];
+
+  if (isAdmin) {
+    return (
+      <View style={styles.stack}>
+        <DashboardHeader title="Attendance Control" subtitle="Manage attendance across all classes" />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 16, marginBottom: 12 }}>
+          {adminTabs.map((tab) => {
+            const active = adminTab === tab.id;
+            return (
+              <Pressable
+                key={tab.id}
+                style={{ minWidth: 64, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, backgroundColor: active ? '#4f46e5' : '#fff', borderWidth: 1, borderColor: active ? '#4f46e5' : '#e5e7eb' }}
+                onPress={() => setAdminTab(tab.id)}
+              >
+                <MaterialCommunityIcons name={tab.icon} size={20} color={active ? '#fff' : '#6b7280'} style={{ marginBottom: 2 }} />
+                <Text style={{ fontSize: 10, fontWeight: '600', color: active ? '#fff' : '#6b7280', textAlign: 'center' }}>{tab.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        <ScrollView>
+          {adminTab === 'overview' && <AdminOverviewTab students={students} onNavigate={setAdminTab} />}
+          {adminTab === 'mark' && (
+            <View style={styles.stack}>
+              <Card title="Mark Attendance">
+                <View style={{ gap: 12 }}>
+                  <View>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase', marginBottom: 4 }}>Class</Text>
+                    <View style={styles.chipRow}>
+                      {['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map((c) => (
+                        <Pressable key={c} style={[styles.chip, klass === c && styles.chipActive]} onPress={() => { setKlass(c); setLoaded(false); }}>
+                          <Text style={[styles.chipText, klass === c && styles.chipTextActive]}>{c}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                  <View>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase', marginBottom: 4 }}>Section</Text>
+                    <View style={styles.chipRow}>
+                      {['A', 'B', 'C', 'D'].map((s) => (
+                        <Pressable key={s} style={[styles.chip, section === s && styles.chipActive]} onPress={() => { setSection(s); setLoaded(false); }}>
+                          <Text style={[styles.chipText, section === s && styles.chipTextActive]}>{s}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                  <Pressable style={[styles.fullWidthButton, { opacity: klass && section ? 1 : 0.5 }]} disabled={!klass || !section} onPress={() => setLoaded(true)}>
+                    <Ionicons name="search" size={18} color="#fff" />
+                    <Text style={styles.primaryText}>Load Students</Text>
+                  </Pressable>
+                </View>
+              </Card>
+              {loaded && klass && section && (
+                <>
+                  <FilterHeader title={`${filtered.length} students in ${klass}${section}`} activeCount={0} onOpen={() => {}} />
+                  {filtered.map((student) => {
+                    const status = attendance[student.id];
+                    return (
+                      <View key={student.id} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 14, fontWeight: '500', color: '#111827' }}>{student.name}</Text>
+                          <Text style={{ fontSize: 12, color: '#6b7280' }}>Roll {student.rollNo}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 6 }}>
+                          {(['Present', 'Absent', 'Late'] as const).map((s) => (
+                            <Pressable
+                              key={s}
+                              style={{ paddingVertical: 5, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: status === s ? (s === 'Present' ? '#059669' : s === 'Absent' ? '#e11d48' : '#d97706') : '#e5e7eb', backgroundColor: status === s ? (s === 'Present' ? '#059669' : s === 'Absent' ? '#e11d48' : '#d97706') : '#fff' }}
+                              onPress={() => setAttendance((prev) => ({ ...prev, [student.id]: s }))}
+                            >
+                              <Text style={{ fontSize: 11, fontWeight: '600', color: status === s ? '#fff' : '#4b5563' }}>{s}</Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      </View>
+                    );
+                  })}
+                  {filtered.length > 0 && (
+                    <Pressable style={[styles.fullWidthButton, { marginTop: 8 }]} onPress={() => {
+                      Alert.alert('Attendance submitted', `Class ${klass}${section} attendance has been recorded.`);
+                      setLoaded(false);
+                      setAttendance({});
+                    }}>
+                      <Text style={styles.primaryText}>Submit Attendance</Text>
+                    </Pressable>
+                  )}
+                </>
+              )}
+            </View>
+          )}
+          {adminTab === 'pending' && <AdminPendingTab />}
+          {adminTab === 'override' && <AdminOverrideTab students={students} user={user} />}
+          {adminTab === 'alerts' && <AdminAlertsTab students={students} />}
+        </ScrollView>
+        <GenericFilterSheet visible={filterOpen} title="Filter attendance" onClose={() => setFilterOpen(false)} onClear={() => { setKlass(''); setSection(''); setRange(''); }} groups={[{ label: 'Class', value: klass, options: classes, onChange: setKlass, allLabel: 'All classes' }, { label: 'Section', value: section, options: sections, onChange: setSection, allLabel: 'All sections' }, { label: 'Attendance', value: range, options: ['Below 75%', '75% - 85%', '85% and above'], onChange: setRange, allLabel: 'All attendance' }]} />
+        <AttendanceSubmissionSheet visible={submissionOpen} students={students} assignedClasses={teacherClassOptions} onClose={() => setSubmissionOpen(false)} onSubmit={submitAttendance} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.stack}>
@@ -4026,7 +4433,7 @@ const styles = StyleSheet.create({
   dashboardTitle: { fontSize: 25, color: '#111827', fontWeight: '800' },
   dashboardSubtitle: { color: '#6b7280', fontSize: 14 },
   metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  metric: { width: '48.5%', minHeight: 108, borderRadius: 18, backgroundColor: '#fff', padding: 14, borderWidth: 1, borderColor: '#f1f5f9', shadowColor: '#0f172a', shadowOpacity: 0.07, shadowRadius: 18, elevation: 3 },
+  metric: { flex: 1, minWidth: 90, minHeight: 108, borderRadius: 18, backgroundColor: '#fff', padding: 14, borderWidth: 1, borderColor: '#f1f5f9', shadowColor: '#0f172a', shadowOpacity: 0.07, shadowRadius: 18, elevation: 3 },
   metricLabel: { color: '#6b7280', fontSize: 12, fontWeight: '600', marginTop: 8 },
   metricValue: { color: '#111827', fontSize: 18, fontWeight: '800', marginTop: 5 },
   card: { backgroundColor: '#fff', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#f1f5f9', shadowColor: '#0f172a', shadowOpacity: 0.075, shadowRadius: 20, elevation: 4 },

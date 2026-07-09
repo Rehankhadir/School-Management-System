@@ -7,13 +7,15 @@ import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { Tabs } from '@/components/ui/Tabs';
 import { motion } from 'framer-motion';
-import { Check, X, Clock, Download, RefreshCw } from 'lucide-react';
+import { Check, X, Clock, Download, RefreshCw, ArrowLeft, Search } from 'lucide-react';
 import * as Papa from 'papaparse';
 import { createNotifications, saveAttendanceRecords, getAttendanceByStudent, hasAttendanceForDate } from '@/services/schoolDataService';
 import { getTeachers } from '@/services/schoolModulesService';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { OverviewFlow, PendingFlow, OverrideFlow, AlertsFlow } from './AdminAttendance';
 
-type AttendanceStatus = 'Present' | 'Absent' | 'Late' | null;
+type AttendanceStatus = 'Present' | 'Absent' | 'Late' | 'Not Taken' | null;
+type CalendarDayStatus = 'Present' | 'Absent' | 'Late' | 'Not Taken';
 const ATTENDANCE_SESSION_KEY = 'school.session.attendance';
 const NOTIFICATIONS_SESSION_KEY = 'school.session.notifications';
 const cs: React.CSSProperties = { backgroundColor: 'white', borderRadius: 16, border: '1px solid #f1f5f9', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' };
@@ -61,14 +63,14 @@ function parseAssignedClasses(value: string): { klass: string; section: string }
     .filter((item): item is { klass: string; section: string } => Boolean(item));
 }
 
-function monthlyAttendanceFor(student: Student, monthIndex: number) {
+function monthlyAttendanceFor(student: Student, monthIndex: number): { day: number; status: CalendarDayStatus }[] {
   const months = buildAttendanceMonths();
   return Array.from({ length: months[monthIndex].days }, (_, index) => {
     const day = index + 1;
     const absentEvery = student.attendancePercent >= 90 ? 17 : student.attendancePercent >= 80 ? 11 : 7;
     const lateEvery = student.attendancePercent >= 90 ? 9 : 6;
     const signature = Number(student.rollNo || 0) + monthIndex + day;
-    const status = signature % absentEvery === 0 ? 'Absent' : signature % lateEvery === 0 ? 'Late' : 'Present';
+    const status: CalendarDayStatus = signature % absentEvery === 0 ? 'Absent' : signature % lateEvery === 0 ? 'Late' : 'Present';
     return { day, status };
   });
 }
@@ -77,7 +79,7 @@ export function AttendancePage() {
   const { role, user } = useAuth();
   const { students } = useStudents();
   const canMark = role === 'admin' || role === 'teacher';
-  const [activeTab, setActiveTab] = useState(canMark ? 'mark' : 'reports');
+  const [activeTab, setActiveTab] = useState(role === 'admin' ? 'overview' : canMark ? 'mark' : 'reports');
   const [selClass, setSelClass] = useState('9');
   const [selSection, setSelSection] = useState('A');
   const [selDate, setSelDate] = useState(() => {
@@ -88,9 +90,12 @@ export function AttendancePage() {
   const [submitted, setSubmitted] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [monthRecords, setMonthRecords] = useState<{ day: number; status: 'Present' | 'Absent' | 'Late' }[] | null>(null);
+  const [monthRecords, setMonthRecords] = useState<{ day: number; status: CalendarDayStatus }[] | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [assignedClasses, setAssignedClasses] = useState<{ klass: string; section: string }[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [studentMonthRecords, setStudentMonthRecords] = useState<{ day: number; status: CalendarDayStatus }[] | null>(null);
+  const [studentSearch, setStudentSearch] = useState('');
 
   const isParent = String(role || user?.role || '').toLowerCase() === 'parent';
   const parentEmail = (user?.email || '').trim().toLowerCase();
@@ -108,10 +113,14 @@ export function AttendancePage() {
   const { year: selectedYear, month: selectedMonthNum } = months[selectedMonth];
   const monthSummary = parentMonthRows.reduce((acc, row) => {
     if (!isFutureDay(selectedYear, selectedMonthNum, row.day) && !isSunday(selectedYear, selectedMonthNum, row.day)) {
-      acc[row.status] += 1;
+      if (row.status === 'Not Taken') {
+        acc['Not Taken'] += 1;
+      } else {
+        acc[row.status] += 1;
+      }
     }
     return acc;
-  }, { Present: 0, Absent: 0, Late: 0 } as Record<'Present' | 'Absent' | 'Late', number>);
+  }, { Present: 0, Absent: 0, Late: 0, 'Not Taken': 0 } as Record<'Present' | 'Absent' | 'Late' | 'Not Taken', number>);
 
   const computedStats = (() => {
     if (isParent && parentChild) {
@@ -260,25 +269,82 @@ export function AttendancePage() {
 
     getAttendanceByStudent(parentChild.id, startDate, endDate).then(({ data }) => {
       if (data && data.length > 0) {
-        const recordsByDay = new Map(data.map((r: { date: string; status: string }) => {
+        const recordsByDay = new Map<number, CalendarDayStatus>(data.map((r: { date: string; status: string }) => {
           const day = Number(r.date.split('-')[2]);
-          return [day, r.status as 'Present' | 'Absent' | 'Late'];
+          return [day, r.status as CalendarDayStatus] as const;
         }));
         setMonthRecords(Array.from({ length: days }, (_, i) => ({
           day: i + 1,
-          status: recordsByDay.get(i + 1) || 'Present',
+          status: recordsByDay.get(i + 1) ?? 'Not Taken' as CalendarDayStatus,
         })));
       } else {
-        setMonthRecords(monthlyAttendanceFor(parentChild, selectedMonth));
+        setMonthRecords(Array.from({ length: days }, (_, i) => {
+          const date = new Date(year, month, i + 1);
+          const dayOfWeek = date.getDay();
+          const isFuture = isFutureDay(year, month, i + 1);
+          if (isFuture || dayOfWeek === 0) return { day: i + 1, status: 'Not Taken' as CalendarDayStatus };
+          return { day: i + 1, status: 'Not Taken' as CalendarDayStatus };
+        }));
       }
     }).catch(() => {
-      setMonthRecords(monthlyAttendanceFor(parentChild, selectedMonth));
+      setMonthRecords(Array.from({ length: days }, (_, i) => {
+        const isFuture = isFutureDay(year, month, i + 1);
+        const isSun = isSunday(year, month, i + 1);
+        return { day: i + 1, status: (isFuture || isSun ? 'Not Taken' : 'Not Taken') as CalendarDayStatus };
+      }));
     });
   }, [isParent, parentChild, selectedMonth]);
 
   useEffect(() => {
     fetchMonthRecords();
   }, [fetchMonthRecords, refreshKey]);
+
+  const fetchStudentAttendance = useCallback((student: Student) => {
+    const months = buildAttendanceMonths();
+    const { year, month, days } = months[selectedMonth];
+    const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(days).padStart(2, '0')}`;
+
+    if (!isSupabaseConfigured) {
+      setStudentMonthRecords(monthlyAttendanceFor(student, selectedMonth));
+      return;
+    }
+
+    getAttendanceByStudent(student.id, startDate, endDate).then(({ data }) => {
+      if (data && data.length > 0) {
+        const recordsByDay = new Map<number, CalendarDayStatus>(data.map((r: { date: string; status: string }) => {
+          const day = Number(r.date.split('-')[2]);
+          return [day, r.status as CalendarDayStatus] as const;
+        }));
+        setStudentMonthRecords(Array.from({ length: days }, (_, i) => ({
+          day: i + 1,
+          status: recordsByDay.get(i + 1) ?? 'Not Taken' as CalendarDayStatus,
+        })));
+      } else {
+        setStudentMonthRecords(Array.from({ length: days }, (_, i) => {
+          return { day: i + 1, status: 'Not Taken' as CalendarDayStatus };
+        }));
+      }
+    }).catch(() => {
+      setStudentMonthRecords(Array.from({ length: days }, (_, i) => {
+        return { day: i + 1, status: 'Not Taken' as CalendarDayStatus };
+      }));
+    });
+  }, [selectedMonth]);
+
+  const studentMonthSummary = studentMonthRecords?.reduce((acc, row) => {
+    const months = buildAttendanceMonths();
+    const { year, month } = months[selectedMonth];
+    if (!isFutureDay(year, month, row.day) && !isSunday(year, month, row.day)) {
+      if (row.status === 'Not Taken') acc['Not Taken'] += 1;
+      else acc[row.status] += 1;
+    }
+    return acc;
+  }, { Present: 0, Absent: 0, Late: 0, 'Not Taken': 0 } as Record<'Present' | 'Absent' | 'Late' | 'Not Taken', number>);
+
+  useEffect(() => {
+    if (selectedStudent) fetchStudentAttendance(selectedStudent);
+  }, [selectedStudent, fetchStudentAttendance]);
 
   useEffect(() => {
     if (!isParent) return;
@@ -300,7 +366,17 @@ export function AttendancePage() {
     const a = document.createElement('a'); a.href = url; a.download = 'attendance_report.csv'; a.click();
   };
 
-  const tabs = canMark ? [{ id: 'mark', label: 'Mark Attendance' }, { id: 'reports', label: 'View Reports' }] : [{ id: 'reports', label: 'View Reports' }];
+  const tabs = canMark
+    ? role === 'admin'
+      ? [
+          { id: 'overview', label: 'Overview' },
+          { id: 'mark', label: 'Mark Attendance' },
+          { id: 'pending', label: 'Pending' },
+          { id: 'override', label: 'Override' },
+          { id: 'alerts', label: 'Absentees' },
+        ]
+      : [{ id: 'mark', label: 'Mark Attendance' }, { id: 'reports', label: 'View Reports' }]
+    : [{ id: 'reports', label: 'View Reports' }];
 
   const isTeacher = role === 'teacher';
   const availableClasses = isTeacher && assignedClasses.length > 0
@@ -378,7 +454,7 @@ export function AttendancePage() {
           </motion.div>
         )}
 
-        {activeTab === 'reports' && (
+        {activeTab === 'reports' && role !== 'admin' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <div className="responsive-grid-3" style={{ display: 'grid', gap: 16, marginBottom: 24 }}>
               {[{ v: `${averageAttendance}%`, l: isParent ? "Child's Attendance" : 'Overall Attendance', c: '#059669' }, { v: String(below75Count), l: 'Below 75%', c: '#e11d48' }, { v: String(perfectAttendanceCount), l: '95% and above', c: '#4f46e5' }].map((s) => (
@@ -423,6 +499,7 @@ export function AttendancePage() {
                       {month.label}
                     </button>
                   ))}
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#4f46e5', alignSelf: 'center' }}>{buildAttendanceMonths()[selectedMonth].year}</span>
                 </div>
 
                 <div className="responsive-grid-3" style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
@@ -430,6 +507,7 @@ export function AttendancePage() {
                     { label: 'Present', value: monthSummary.Present, bg: '#ecfdf5', border: '#bbf7d0' },
                     { label: 'Absent', value: monthSummary.Absent, bg: '#fff1f2', border: '#fecdd3' },
                     { label: 'Late', value: monthSummary.Late, bg: '#fff7ed', border: '#fed7aa' },
+                    { label: 'Not Taken', value: monthSummary['Not Taken'], bg: '#f3f4f6', border: '#e5e7eb' },
                   ].map((item) => (
                     <div key={item.label} style={{ padding: 12, borderRadius: 12, backgroundColor: item.bg, border: `1px solid ${item.border}` }}>
                       <div style={{ fontSize: 20, fontWeight: 700, color: '#111827' }}>{item.value}</div>
@@ -456,16 +534,19 @@ export function AttendancePage() {
                       const future = isFutureDay(year, month, row.day);
                       const sunday = isSunday(year, month, row.day);
                       const greyed = future || sunday;
+                      const notTaken = !greyed && row.status === 'Not Taken';
                       const colors = greyed
                         ? { bg: '#f9fafb', border: '#e5e7eb' }
-                        : row.status === 'Present'
-                          ? { bg: '#ecfdf5', border: '#bbf7d0' }
-                          : row.status === 'Absent'
-                            ? { bg: '#fff1f2', border: '#fecdd3' }
-                            : { bg: '#fff7ed', border: '#fed7aa' };
-                      const textColor = greyed ? '#d1d5db' : '#111827';
+                        : notTaken
+                          ? { bg: '#f3f4f6', border: '#d1d5db' }
+                          : row.status === 'Present'
+                            ? { bg: '#ecfdf5', border: '#bbf7d0' }
+                            : row.status === 'Absent'
+                              ? { bg: '#fff1f2', border: '#fecdd3' }
+                              : { bg: '#fff7ed', border: '#fed7aa' };
+                      const textColor = greyed ? '#d1d5db' : notTaken ? '#9ca3af' : '#111827';
                       return (
-                        <div key={row.day} style={{ aspectRatio: '1 / 1', minHeight: 34, borderRadius: 10, backgroundColor: colors.bg, border: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: textColor }}>
+                        <div key={row.day} title={notTaken ? 'Attendance not taken' : row.status} style={{ aspectRatio: '1 / 1', minHeight: 34, borderRadius: 10, backgroundColor: colors.bg, border: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: textColor }}>
                           {row.day}
                         </div>
                       );
@@ -475,7 +556,7 @@ export function AttendancePage() {
                 </div>
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 14 }}>
-                  {[{ label: 'Present', color: '#22c55e' }, { label: 'Absent', color: '#ef4444' }, { label: 'Late', color: '#f59e0b' }].map((item) => (
+                  {[{ label: 'Present', color: '#22c55e' }, { label: 'Absent', color: '#ef4444' }, { label: 'Late', color: '#f59e0b' }, { label: 'Not Taken', color: '#9ca3af' }].map((item) => (
                     <span key={item.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
                       <span style={{ width: 9, height: 9, borderRadius: 999, backgroundColor: item.color }} />
                       {item.label}
@@ -485,23 +566,111 @@ export function AttendancePage() {
               </div>
             )}
 
+            {selectedStudent ? (
+              <div>
+                <button onClick={() => { setSelectedStudent(null); setStudentMonthRecords(null); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 13, fontWeight: 500, color: '#4f46e5', backgroundColor: '#eef2ff', borderRadius: 8, border: 'none', cursor: 'pointer', marginBottom: 16 }}>
+                  <ArrowLeft size={14} /> Back to Report
+                </button>
+
+                <div style={{ ...cs, padding: 20, marginBottom: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <Avatar name={selectedStudent.name} size="lg" />
+                    <div>
+                      <h3 style={{ fontSize: 18, fontWeight: 700, color: '#111827' }}>{selectedStudent.name}</h3>
+                      <p style={{ fontSize: 13, color: '#6b7280' }}>Class {selectedStudent.class}{selectedStudent.section} · Roll No: {selectedStudent.rollNo}</p>
+                    </div>
+                    <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                      <div style={{ fontSize: 28, fontWeight: 700, color: selectedStudent.attendancePercent >= 85 ? '#059669' : selectedStudent.attendancePercent >= 75 ? '#d97706' : '#e11d48' }}>{selectedStudent.attendancePercent}%</div>
+                      <div style={{ fontSize: 12, color: '#6b7280' }}>Overall</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                  {buildAttendanceMonths().map((month, index) => (
+                    <button key={month.label} onClick={() => setSelectedMonth(index)} style={{ minHeight: 34, minWidth: 52, padding: '6px 12px', borderRadius: 999, border: `1px solid ${selectedMonth === index ? '#4f46e5' : '#e5e7eb'}`, backgroundColor: selectedMonth === index ? '#4f46e5' : 'white', color: selectedMonth === index ? 'white' : '#4b5563', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>{month.label}</button>
+                  ))}
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#4f46e5', marginLeft: 4 }}>{buildAttendanceMonths()[selectedMonth].year}</span>
+                </div>
+
+                {studentMonthSummary && (
+                  <div className="responsive-grid-3" style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
+                    {[
+                      { label: 'Present', value: studentMonthSummary.Present, bg: '#ecfdf5', border: '#bbf7d0' },
+                      { label: 'Absent', value: studentMonthSummary.Absent, bg: '#fff1f2', border: '#fecdd3' },
+                      { label: 'Late', value: studentMonthSummary.Late, bg: '#fff7ed', border: '#fed7aa' },
+                      { label: 'Not Taken', value: studentMonthSummary['Not Taken'], bg: '#f3f4f6', border: '#e5e7eb' },
+                    ].map((item) => (
+                      <div key={item.label} style={{ padding: 12, borderRadius: 12, backgroundColor: item.bg, border: `1px solid ${item.border}`, textAlign: 'center' }}>
+                        <div style={{ fontSize: 20, fontWeight: 700, color: '#111827' }}>{item.value}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', marginTop: 2 }}>{item.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {studentMonthRecords && (
+                  <div style={{ ...cs, padding: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(34px, 1fr))', gap: 6, marginBottom: 8 }}>
+                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                        <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', padding: '4px 0' }}>{d}</div>
+                      ))}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(34px, 1fr))', gap: 6 }}>
+                      {(() => {
+                        const months = buildAttendanceMonths();
+                        const { year, month } = months[selectedMonth];
+                        const firstDay = new Date(year, month, 1).getDay();
+                        const blanks = Array.from({ length: firstDay }, (_, i) => <div key={`blank-${i}`} />);
+                        const days = studentMonthRecords.map((row) => {
+                          const future = isFutureDay(year, month, row.day);
+                          const sunday = isSunday(year, month, row.day);
+                          const greyed = future || sunday;
+                          const notTaken = !greyed && row.status === 'Not Taken';
+                          const colors = greyed ? { bg: '#f9fafb', border: '#e5e7eb' } : notTaken ? { bg: '#f3f4f6', border: '#d1d5db' } : row.status === 'Present' ? { bg: '#ecfdf5', border: '#bbf7d0' } : row.status === 'Absent' ? { bg: '#fff1f2', border: '#fecdd3' } : { bg: '#fff7ed', border: '#fed7aa' };
+                          const textColor = greyed ? '#d1d5db' : notTaken ? '#9ca3af' : '#111827';
+                          return (
+                            <div key={row.day} title={notTaken ? 'Attendance not taken' : row.status} style={{ aspectRatio: '1 / 1', minHeight: 34, borderRadius: 10, backgroundColor: colors.bg, border: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: textColor }}>{row.day}</div>
+                          );
+                        });
+                        return [...blanks, ...days];
+                      })()}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 14 }}>
+                      {[{ label: 'Present', color: '#22c55e' }, { label: 'Absent', color: '#ef4444' }, { label: 'Late', color: '#f59e0b' }, { label: 'Not Taken', color: '#9ca3af' }].map((item) => (
+                        <span key={item.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
+                          <span style={{ width: 9, height: 9, borderRadius: 999, backgroundColor: item.color }} />
+                          {item.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
             <div style={{ ...cs, overflow: 'hidden' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #f3f4f6', flexWrap: 'wrap', gap: 8 }}>
                 <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>Attendance Report</h3>
-                <button onClick={exportCSV} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 500, color: '#4f46e5', backgroundColor: '#eef2ff', borderRadius: 8, border: 'none', cursor: 'pointer' }}><Download size={12} /> Export CSV</button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ position: 'relative' }}>
+                    <Search size={14} color="#9ca3af" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+                    <input type="text" placeholder="Search student..." value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} style={{ paddingLeft: 30, paddingRight: 10, paddingTop: 6, paddingBottom: 6, fontSize: 13, border: '1px solid #e5e7eb', borderRadius: 8, outline: 'none', width: 180 }} />
+                  </div>
+                  <button onClick={exportCSV} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 500, color: '#4f46e5', backgroundColor: '#eef2ff', borderRadius: 8, border: 'none', cursor: 'pointer' }}><Download size={12} /> Export CSV</button>
+                </div>
               </div>
               <div className="responsive-table-wrap">
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    {['Student', 'Roll No', 'Attendance %'].map((h) => (
+                    {['Student', 'Roll No', 'Attendance %', ''].map((h) => (
                       <th key={h} style={{ textAlign: h === 'Attendance %' ? 'center' : 'left', padding: '12px 16px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: '#9ca3af' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleStudents.slice(0, 15).map((s, i) => (
-                    <tr key={s.id} style={{ borderBottom: '1px solid #f9fafb', backgroundColor: i % 2 === 1 ? '#fafafa' : 'white' }}>
+                  {visibleStudents.filter((s) => !studentSearch || s.name.toLowerCase().includes(studentSearch.toLowerCase()) || s.rollNo.toLowerCase().includes(studentSearch.toLowerCase())).slice(0, 20).map((s, i) => (
+                    <tr key={s.id} onClick={() => { setSelectedStudent(s); setSelectedMonth(new Date().getMonth()); }} style={{ borderBottom: '1px solid #f9fafb', backgroundColor: i % 2 === 1 ? '#fafafa' : 'white', cursor: 'pointer' }} className="hover:bg-indigo-50/50">
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><Avatar name={s.name} size="sm" /><span style={{ fontSize: 14, fontWeight: 500, color: '#111827' }}>{s.name}</span></div>
                       </td>
@@ -509,12 +678,38 @@ export function AttendancePage() {
                       <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                         <span style={{ fontSize: 14, fontWeight: 600, color: s.attendancePercent >= 85 ? '#059669' : s.attendancePercent >= 75 ? '#d97706' : '#e11d48' }}>{s.attendancePercent}%</span>
                       </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'center', fontSize: 12, color: '#4f46e5', fontWeight: 500 }}>View →</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               </div>
             </div>
+            )}
+          </motion.div>
+        )}
+
+        {activeTab === 'overview' && role === 'admin' && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <OverviewFlow students={students} today={selDate} onNavigateTab={(tab) => setActiveTab(tab)} />
+          </motion.div>
+        )}
+
+        {activeTab === 'pending' && role === 'admin' && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <PendingFlow students={students} today={selDate} />
+          </motion.div>
+        )}
+
+        {activeTab === 'override' && role === 'admin' && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <OverrideFlow students={students} user={user} />
+          </motion.div>
+        )}
+
+        {activeTab === 'alerts' && role === 'admin' && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <AlertsFlow students={students} user={user} />
           </motion.div>
         )}
       </div>

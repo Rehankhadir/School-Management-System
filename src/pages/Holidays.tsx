@@ -109,7 +109,7 @@ export function HolidaysPage() {
               <div style={{ color: '#111827', fontSize: 21, fontWeight: 900 }}>{nextHoliday.title}</div>
               <div style={{ color: '#64748b', fontSize: 13, marginTop: 5 }}>{formatDate(nextHoliday.date)}{nextHoliday.endDate ? ` to ${formatDate(nextHoliday.endDate)}` : ''}</div>
             </div>
-            <Badge variant="primary">{daysBetween(nextHoliday.date, nextHoliday.endDate)} day{daysBetween(nextHoliday.date, nextHoliday.endDate) > 1 ? 's' : ''}</Badge>
+            <Badge variant="indigo">{daysBetween(nextHoliday.date, nextHoliday.endDate)} day{daysBetween(nextHoliday.date, nextHoliday.endDate) > 1 ? 's' : ''}</Badge>
           </div>
         </div>
       )}
