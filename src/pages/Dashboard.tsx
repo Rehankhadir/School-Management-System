@@ -62,7 +62,7 @@ function AdminDashboard() {
         <StatCard label="Pending Fees" value={245000} prefix="₹" icon={<AlertTriangle size={24} color="#e11d48" />} iconBg="bg-rose-100" trend={{ value: 3, isUp: false }} delay={3} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 24, marginBottom: 24 }}>
+      <div className="responsive-chart-grid" style={{ display: 'grid', gap: 24, marginBottom: 24 }}>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} style={cardStyle}>
           <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>Monthly Fee Collection</h3>
           <ResponsiveContainer width="100%" height={260}>
@@ -96,7 +96,7 @@ function AdminDashboard() {
         </motion.div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 24, marginBottom: 24 }}>
+      <div className="responsive-chart-grid" style={{ display: 'grid', gap: 24, marginBottom: 24 }}>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} style={cardStyle}>
           <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>Low Attendance Students</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -316,7 +316,7 @@ function TeacherDashboard() {
         subtitle={`${assignedClasses.map((c) => `Class ${c.label}`).join(', ') || 'Classes 9 & 10'} · ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 32 }}>
+      <div className="responsive-grid-6" style={{ display: 'grid', gap: 12, marginBottom: 32 }}>
         {[
           { label: 'Mark Attendance', icon: <CalendarCheck size={20} />, color: '#4f46e5', bg: '#eef2ff', path: '/attendance' },
           { label: 'Enter Marks', icon: <FileText size={20} />, color: '#059669', bg: '#ecfdf5', path: '/marks' },
@@ -369,14 +369,14 @@ function TeacherDashboard() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
+      <div className="responsive-grid-4" style={{ display: 'grid', gap: 16, marginBottom: 32 }}>
         <StatCard label="My Students" value={totalStudents} icon={<Users size={24} color="#4f46e5" />} iconBg="bg-indigo-100" delay={0} />
         <StatCard label="Class Average" value={Math.round(classAvgScore)} suffix="%" icon={<GraduationCap size={24} color="#059669" />} iconBg="bg-emerald-100" delay={1} />
         <StatCard label="Low Attendance" value={lowAttendanceStudents.length} icon={<AlertTriangle size={24} color="#e11d48" />} iconBg="bg-rose-100" delay={2} />
         <StatCard label="Leaves Left" value={remainingLeaveDays} suffix={`/ ${maxLeaveDays}`} icon={<Clock size={24} color="#9333ea" />} iconBg="bg-purple-100" delay={3} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 32 }}>
+      <div className="responsive-split" style={{ display: 'grid', gap: 24, marginBottom: 32 }}>
         <div style={{ ...cardStyle, padding: 28 }}>
           <h3 style={{ fontSize: 15, fontWeight: 600, color: '#111827', marginBottom: 20 }}>Today's Schedule</h3>
           {todayTimetable.length > 0 ? (
@@ -444,7 +444,7 @@ function TeacherDashboard() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, marginBottom: 32 }}>
+      <div className="responsive-split-wide" style={{ display: 'grid', gap: 24, marginBottom: 32 }}>
         <div style={{ ...cardStyle, padding: 28 }}>
           <h3 style={{ fontSize: 15, fontWeight: 600, color: '#111827', marginBottom: 20 }}>Attendance Trend</h3>
           <ResponsiveContainer width="100%" height={240}>
@@ -537,7 +537,7 @@ function TeacherDashboard() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 32 }}>
+      <div className="responsive-split" style={{ display: 'grid', gap: 24, marginBottom: 32 }}>
         <div style={{ ...cardStyle, padding: 28 }}>
           <h3 style={{ fontSize: 15, fontWeight: 600, color: '#111827', marginBottom: 20 }}>
             Recent Results {recentAssessments.examName && <span style={{ fontSize: 12, fontWeight: 400, color: '#94a3b8' }}>· {recentAssessments.examName}</span>}
@@ -600,7 +600,7 @@ function TeacherDashboard() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 32 }}>
+      <div className="responsive-split" style={{ display: 'grid', gap: 24, marginBottom: 32 }}>
         <div style={{ ...cardStyle, padding: 28 }}>
           <h3 style={{ fontSize: 15, fontWeight: 600, color: '#111827', marginBottom: 20 }}>Grade Distribution</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -729,7 +729,7 @@ function ParentDashboard() {
         <StatCard label="Unread Alerts" value={unreadNotifications} icon={<Megaphone size={24} color="#9333ea" />} iconBg="bg-purple-100" delay={3} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 24, marginBottom: 24 }}>
+      <div className="responsive-chart-grid" style={{ display: 'grid', gap: 24, marginBottom: 24 }}>
         <div style={cardStyle}>
           <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>Child Summary</h3>
           <div style={{ display: 'grid', gap: 12 }}>
@@ -776,7 +776,7 @@ function ParentDashboard() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 24 }}>
+      <div className="responsive-chart-grid" style={{ display: 'grid', gap: 24 }}>
         <div style={cardStyle}>
           <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>Upcoming Exams</h3>
           <div style={{ display: 'grid', gap: 12 }}>

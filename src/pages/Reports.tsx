@@ -174,6 +174,7 @@ export function ReportsPage() {
                   </ResponsiveContainer>
                 </div>
               )}
+              <div className="responsive-table-wrap">
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
@@ -194,6 +195,7 @@ export function ReportsPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
               {!rows.length && <div style={{ padding: 32, textAlign: 'center', color: '#6b7280', fontSize: 14 }}>No records match the selected filters.</div>}
             </div>
           )}

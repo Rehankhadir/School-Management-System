@@ -115,7 +115,7 @@ export function NotificationsPage() {
           )}
         </div>
 
-        {/* Detail panel */}
+        {/* Detail panel - hidden on mobile, shown as sidebar on lg+ */}
         <div className="hidden lg:block" style={{ width: 320, flexShrink: 0 }}>
           {selected ? (
             <motion.div key={selected.id} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} style={{ ...cs, padding: 24, position: 'sticky', top: 24 }}>
@@ -132,6 +132,20 @@ export function NotificationsPage() {
           )}
         </div>
       </div>
+
+      {/* Mobile detail card - shown below list on mobile */}
+      {selected && (
+        <div className="lg:hidden" style={{ ...cs, padding: 16, marginTop: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: typeColors[selected.type]?.bg, color: typeColors[selected.type]?.text }}>{typeIcons[selected.type]}</div>
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 600, color: '#111827' }}>{selected.title}</h3>
+              <p style={{ fontSize: 12, color: '#9ca3af' }}>{formatDistanceToNow(new Date(selected.time), { addSuffix: true })}</p>
+            </div>
+          </div>
+          <p style={{ fontSize: 14, color: '#4b5563', lineHeight: 1.6 }}>{selected.message}</p>
+        </div>
+      )}
     </>
   );
 }

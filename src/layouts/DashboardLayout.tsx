@@ -415,7 +415,7 @@ export function DashboardLayout() {
         </header>
 
         {/* Page content */}
-        <main style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+        <main style={{ flex: 1, overflowY: 'auto' }} className="responsive-padding">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}

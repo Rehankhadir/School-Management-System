@@ -51,7 +51,7 @@ export function ProfilePage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: 24 }}>
+      <div className="responsive-min-grid" style={{ display: 'grid', gap: 24 }}>
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={cs}>
           <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>Personal Information</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

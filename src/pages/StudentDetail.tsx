@@ -107,7 +107,7 @@ export function StudentDetailPage() {
                 <Badge variant={student.feeStatus === 'Paid' ? 'success' : student.feeStatus === 'Overdue' ? 'danger' : 'warning'} showDot>{student.feeStatus}</Badge>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div className="responsive-grid-4" style={{ display: 'grid', gap: 12 }}>
               {[
                 { val: `${student.attendancePercent}%`, label: 'Attendance' },
                 { val: `₹${sFee?.totalAmount?.toLocaleString()}`, label: 'Total Fees' },
@@ -170,7 +170,7 @@ export function StudentDetailPage() {
 
         {activeTab === 'attendance' && (
           <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+            <div className="responsive-grid-3" style={{ display: 'grid', gap: 16, marginBottom: 24 }}>
               {[
                 { val: presentCount, label: 'Present', color: '#059669' },
                 { val: absentCount, label: 'Absent', color: '#e11d48' },
@@ -232,6 +232,7 @@ export function StudentDetailPage() {
                   <div style={{ padding: '16px 24px', borderBottom: '1px solid #f3f4f6' }}>
                     <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{exam}</h3>
                   </div>
+                  <div className="responsive-table-wrap">
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
@@ -254,6 +255,7 @@ export function StudentDetailPage() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               );
             })}
@@ -264,6 +266,7 @@ export function StudentDetailPage() {
           <div>
             <div style={{ ...cs, padding: 24, marginBottom: 24 }}>
               <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>Fee Structure</h3>
+              <div className="responsive-table-wrap">
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <tbody>
                   {sFee.feeStructure.map((item, i) => (
@@ -278,6 +281,7 @@ export function StudentDetailPage() {
                   </tr>
                 </tbody>
               </table>
+              </div>
             </div>
             {sFee.paymentHistory.length > 0 && (
               <div style={{ ...cs, padding: 24 }}>

@@ -14,7 +14,7 @@ interface TabsProps {
 export function Tabs({ tabs, activeTab, onChange, variant = 'underline' }: TabsProps) {
   if (variant === 'pill') {
     return (
-      <div style={{ display: 'flex', gap: '6px', backgroundColor: '#f3f4f6', borderRadius: '12px', padding: '4px' }}>
+      <div style={{ display: 'flex', gap: '6px', backgroundColor: '#f3f4f6', borderRadius: '12px', padding: '4px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -58,7 +58,7 @@ export function Tabs({ tabs, activeTab, onChange, variant = 'underline' }: TabsP
 
   return (
     <div style={{ borderBottom: '1px solid #e5e7eb' }}>
-      <nav style={{ display: 'flex', gap: '24px' }}>
+      <nav style={{ display: 'flex', gap: '24px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (

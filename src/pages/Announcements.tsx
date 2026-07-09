@@ -49,7 +49,7 @@ export function AnnouncementsPage() {
       {error && <div style={{ padding: 12, marginBottom: 16, borderRadius: 12, backgroundColor: '#fff1f2', color: '#be123c', fontSize: 14, border: '1px solid #fecdd3' }}>{error}</div>}
 
       {showForm && role === 'admin' && (
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: 24, marginBottom: 24 }}>
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="responsive-min-grid" style={{ display: 'grid', gap: 24, marginBottom: 24 }}>
           <div style={{ backgroundColor: 'white', borderRadius: 16, border: '1px solid #f1f5f9', padding: 24 }}>
             <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 16 }}>New Announcement</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

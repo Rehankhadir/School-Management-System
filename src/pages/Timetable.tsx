@@ -94,7 +94,7 @@ export function TimetablePage() {
         title="Timetable"
         subtitle={`Class ${selClass}-${selSection} Weekly Schedule`}
         actions={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="responsive-header-actions" style={{ display: 'flex', alignItems: 'center' }}>
             <select value={selClass} onChange={(e) => setSelClass(e.target.value)} style={selectStyle}>
               {classes.map((c) => <option key={c} value={c}>Class {c}</option>)}
             </select>

@@ -143,7 +143,7 @@ export function ExamsPage() {
       <PageHeader title="Exams" subtitle={isParent ? "View your child's exam timetable" : 'Manage and view exam schedules'} />
       {error && <div style={{ padding: 12, marginBottom: 16, borderRadius: 12, backgroundColor: '#fff1f2', color: '#be123c', fontSize: 14, border: '1px solid #fecdd3' }}>{error}</div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: canManage ? 'minmax(0, 1fr) 390px' : '1fr', gap: 24, alignItems: 'start' }}>
+      <div className={canManage ? 'responsive-sidebar-layout' : ''} style={{ display: 'grid', gap: 24, alignItems: 'start' }}>
         <section style={{ minWidth: 0 }}>
           <div style={{ ...cardStyle, padding: 16, marginBottom: 18 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
@@ -249,7 +249,7 @@ export function ExamsPage() {
                 {subjects.map((subject) => <option key={subject} value={subject}>{subject}</option>)}
               </select>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 10 }}>
+              <div className="responsive-form-grid" style={{ display: 'grid', gap: 10 }}>
                 <div>
                   <label style={{ fontSize: 12, color: '#475569', fontWeight: 700 }}>Class</label>
                   <input name="class" value={form.class} onChange={handleChange} placeholder="9" required style={{ width: '100%', marginTop: 6, padding: 11, borderRadius: 12, border: '1px solid #e6edf3' }} />

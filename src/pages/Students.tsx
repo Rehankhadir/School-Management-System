@@ -368,7 +368,7 @@ export function StudentsPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {step === 1 && <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="responsive-form-grid" style={{ display: 'grid', gap: 16 }}>
               <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9ca3af', marginBottom: 4 }}>First Name</label><input type="text" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} style={inputS} /></div>
               <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9ca3af', marginBottom: 4 }}>Last Name</label><input type="text" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} style={inputS} /></div>
             </div>
@@ -391,7 +391,7 @@ export function StudentsPage() {
           </>}
 
           {step === 2 && <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="responsive-form-grid" style={{ display: 'grid', gap: 16 }}>
               <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9ca3af', marginBottom: 4 }}>Class</label>
                 <select value={form.class} onChange={(e) => setForm({ ...form, class: e.target.value })} style={inputS}>{classes.map((c) => <option key={c} value={c}>Class {c}</option>)}</select></div>
               <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9ca3af', marginBottom: 4 }}>Section</label>
@@ -403,7 +403,7 @@ export function StudentsPage() {
 
           {step === 3 && <>
             <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9ca3af', marginBottom: 4 }}>Guardian Name</label><input type="text" value={form.guardianName} onChange={(e) => setForm({ ...form, guardianName: e.target.value })} style={inputS} /></div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="responsive-form-grid" style={{ display: 'grid', gap: 16 }}>
               <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9ca3af', marginBottom: 4 }}>Phone</label><input type="tel" value={form.guardianPhone} onChange={(e) => setForm({ ...form, guardianPhone: e.target.value })} style={inputS} /></div>
               <div><label style={{ display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9ca3af', marginBottom: 4 }}>Email</label><input type="email" value={form.guardianEmail} onChange={(e) => setForm({ ...form, guardianEmail: e.target.value })} style={inputS} /></div>
             </div>

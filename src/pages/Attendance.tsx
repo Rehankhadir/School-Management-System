@@ -380,7 +380,7 @@ export function AttendancePage() {
 
         {activeTab === 'reports' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+            <div className="responsive-grid-3" style={{ display: 'grid', gap: 16, marginBottom: 24 }}>
               {[{ v: `${averageAttendance}%`, l: isParent ? "Child's Attendance" : 'Overall Attendance', c: '#059669' }, { v: String(below75Count), l: 'Below 75%', c: '#e11d48' }, { v: String(perfectAttendanceCount), l: '95% and above', c: '#4f46e5' }].map((s) => (
                 <div key={s.l} style={{ ...cs, padding: 16, textAlign: 'center' }}>
                   <div style={{ fontSize: 28, fontWeight: 700, color: s.c }}>{s.v}</div>
@@ -425,7 +425,7 @@ export function AttendancePage() {
                   ))}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
+                <div className="responsive-grid-3" style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
                   {[
                     { label: 'Present', value: monthSummary.Present, bg: '#ecfdf5', border: '#bbf7d0' },
                     { label: 'Absent', value: monthSummary.Absent, bg: '#fff1f2', border: '#fecdd3' },
@@ -490,6 +490,7 @@ export function AttendancePage() {
                 <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>Attendance Report</h3>
                 <button onClick={exportCSV} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 500, color: '#4f46e5', backgroundColor: '#eef2ff', borderRadius: 8, border: 'none', cursor: 'pointer' }}><Download size={12} /> Export CSV</button>
               </div>
+              <div className="responsive-table-wrap">
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
@@ -512,6 +513,7 @@ export function AttendancePage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           </motion.div>
         )}

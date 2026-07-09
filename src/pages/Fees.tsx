@@ -202,7 +202,7 @@ export function FeesPage() {
       >
         {curFee && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, textAlign: 'center' }}>
+            <div className="responsive-grid-3" style={{ display: 'grid', gap: 12, textAlign: 'center' }}>
               <div style={{ padding: 12, borderRadius: 12, backgroundColor: '#f9fafb' }}><div style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>₹{curFee.totalAmount.toLocaleString()}</div><div style={{ fontSize: 11, color: '#6b7280' }}>Total</div></div>
               <div style={{ padding: 12, borderRadius: 12, backgroundColor: '#ecfdf5' }}><div style={{ fontSize: 14, fontWeight: 700, color: '#059669' }}>₹{curFee.amountPaid.toLocaleString()}</div><div style={{ fontSize: 11, color: '#6b7280' }}>Paid</div></div>
               <div style={{ padding: 12, borderRadius: 12, backgroundColor: '#fff1f2' }}><div style={{ fontSize: 14, fontWeight: 700, color: '#e11d48' }}>₹{curFee.balance.toLocaleString()}</div><div style={{ fontSize: 11, color: '#6b7280' }}>Balance</div></div>

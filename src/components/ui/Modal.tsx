@@ -38,7 +38,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
                 </button>
               </div>
             )}
-            <div style={{ padding: '24px' }}>{children}</div>
+            <div className="responsive-padding-sm">{children}</div>
           </motion.div>
         </div>
       )}

@@ -87,7 +87,7 @@ export function HolidaysPage() {
       </div>
 
       <div style={{ ...cardStyle, padding: 16, marginBottom: 20 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr) 170px 180px', gap: 12, alignItems: 'center' }}>
+        <div className="responsive-search-filter" style={{ display: 'grid', alignItems: 'center' }}>
           <div style={{ position: 'relative' }}>
             <Search size={18} color="#94a3b8" style={{ position: 'absolute', left: 14, top: 13 }} />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search holidays..." style={{ width: '100%', height: 44, padding: '0 14px 0 42px', borderRadius: 14, border: '1px solid #e5e7eb', background: '#f8fafc', outline: 'none' }} />

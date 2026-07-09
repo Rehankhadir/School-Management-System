@@ -281,14 +281,16 @@ export function MarksPage() {
       {activeTab === 'enter' && canEnter && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <div style={{ ...cardStyle, padding: 18, marginBottom: 18 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) auto', gap: 12, alignItems: 'end', minWidth: 820, overflowX: 'auto' }}>
-              <div><label style={labelStyle}>Exam</label><select value={selExam} onChange={(event) => setSelExam(event.target.value)} style={inputStyle}>{examTypes.map((exam) => <option key={exam}>{exam}</option>)}</select></div>
-              <div><label style={labelStyle}>Class</label><select value={selClass} onChange={(event) => setSelClass(event.target.value)} style={inputStyle}>{classOptions.map((item) => <option key={item} value={item}>Class {item}</option>)}</select></div>
-              <div><label style={labelStyle}>Section</label><select value={selSection} onChange={(event) => setSelSection(event.target.value)} style={inputStyle}>{sectionOptions.map((item) => <option key={item}>{item}</option>)}</select></div>
-              <div><label style={labelStyle}>Subject</label><select value={selSubject} onChange={(event) => setSelSubject(event.target.value)} style={inputStyle}>{subjectOptions.map((item) => <option key={item}>{item}</option>)}</select></div>
-              <button onClick={loadStudents} style={{ minHeight: 43, padding: '0 16px', backgroundColor: '#4f46e5', color: 'white', fontSize: 14, fontWeight: 800, borderRadius: 14, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                <Search size={17} /> Refresh
-              </button>
+            <div className="responsive-table-wrap">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) auto', gap: 12, alignItems: 'end', minWidth: 820 }}>
+                <div><label style={labelStyle}>Exam</label><select value={selExam} onChange={(event) => setSelExam(event.target.value)} style={inputStyle}>{examTypes.map((exam) => <option key={exam}>{exam}</option>)}</select></div>
+                <div><label style={labelStyle}>Class</label><select value={selClass} onChange={(event) => setSelClass(event.target.value)} style={inputStyle}>{classOptions.map((item) => <option key={item} value={item}>Class {item}</option>)}</select></div>
+                <div><label style={labelStyle}>Section</label><select value={selSection} onChange={(event) => setSelSection(event.target.value)} style={inputStyle}>{sectionOptions.map((item) => <option key={item}>{item}</option>)}</select></div>
+                <div><label style={labelStyle}>Subject</label><select value={selSubject} onChange={(event) => setSelSubject(event.target.value)} style={inputStyle}>{subjectOptions.map((item) => <option key={item}>{item}</option>)}</select></div>
+                <button onClick={loadStudents} style={{ minHeight: 43, padding: '0 16px', backgroundColor: '#4f46e5', color: 'white', fontSize: 14, fontWeight: 800, borderRadius: 14, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <Search size={17} /> Refresh
+                </button>
+              </div>
             </div>
           </div>
 
