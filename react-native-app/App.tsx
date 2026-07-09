@@ -3035,7 +3035,9 @@ function TimetableScreen({
   const [filterOpen, setFilterOpen] = useState(false);
   const [editingPeriod, setEditingPeriod] = useState<{ day: string; period: TimetableEntry } | null>(null);
   const timetableKey = `${klass}${section}`;
-  const schedule = timetableData[timetableKey] || timetableData['9A'];
+  const rawSchedule = timetableData[timetableKey] || timetableData['9A'];
+  const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const schedule = [...rawSchedule].sort((a, b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day));
   const selectedDay = day || schedule[0]?.day || 'Monday';
   const selectedSchedule = schedule.find((item) => item.day === selectedDay) || schedule[0];
   const studyPeriods = selectedSchedule?.periods.filter((period) => !period.isBreak).length || 0;
