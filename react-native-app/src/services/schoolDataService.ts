@@ -52,3 +52,22 @@ export async function getAttendanceForDate(date: string, classSection: string) {
     .eq('class', cls)
     .eq('section', sec);
 }
+
+export async function getTeacherAttendance(teacherId: string, date: string) {
+  if (!supabase) return { data: null, error: new Error('Supabase is not configured') };
+  return (supabase as any)
+    .from('teacher_attendance')
+    .select('*')
+    .eq('teacher_id', teacherId)
+    .eq('date', date)
+    .maybeSingle();
+}
+
+export async function saveTeacherAttendance(record: { teacher_id: string; date: string; status: string; marked_at: string }) {
+  if (!supabase) return { data: null, error: new Error('Supabase is not configured') };
+  return (supabase as any)
+    .from('teacher_attendance')
+    .upsert(record, { onConflict: 'teacher_id,date' })
+    .select()
+    .single();
+}

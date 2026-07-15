@@ -15,7 +15,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { monthlyFeeCollection, weeklyAttendance, announcements, marks, fees, notifications, leaves, exams } from '@/data/mockData';
 import { useNavigate } from 'react-router-dom';
 import { getTeachers, getLeaves, getMarks, getTimetable, getExams } from '@/services/schoolModulesService';
-import { getAttendanceByDateRange } from '@/services/schoolDataService';
+import { getAttendanceByDateRange, getTeacherAttendance, saveTeacherAttendance } from '@/services/schoolDataService';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
@@ -201,6 +201,8 @@ function TeacherDashboard() {
   const [teacherMarks, setTeacherMarks] = useState<any[]>([]);
   const [timetableData, setTimetableData] = useState<Record<string, any>>({});
   const [examsData, setExamsData] = useState<any[]>([]);
+  const [myAttendance, setMyAttendance] = useState<'Present' | 'Absent' | 'Late' | null>(null);
+  const [attLoading, setAttLoading] = useState(false);
 
   const parseAssignedClasses = (value: string) =>
     value.split(',').map((s) => s.trim()).map((label) => {
@@ -334,6 +336,28 @@ function TeacherDashboard() {
     return [...filteredStudents].sort((a, b) => a.attendancePercent - b.attendancePercent).slice(0, 5);
   }, [filteredStudents]);
 
+  useEffect(() => {
+    if (!teacherData?.id) return;
+    const today = new Date().toISOString().split('T')[0];
+    getTeacherAttendance(teacherData.id, today).then(({ data }) => {
+      if (data) setMyAttendance(data.status);
+    });
+  }, [teacherData?.id]);
+
+  const markMyAttendance = async (status: 'Present' | 'Absent' | 'Late') => {
+    if (!teacherData?.id) return;
+    setAttLoading(true);
+    const today = new Date().toISOString().split('T')[0];
+    await saveTeacherAttendance({
+      teacher_id: teacherData.id,
+      date: today,
+      status,
+      marked_at: new Date().toISOString(),
+    });
+    setMyAttendance(status);
+    setAttLoading(false);
+  };
+
   return (
     <>
       <PageHeader
@@ -400,6 +424,62 @@ function TeacherDashboard() {
         <StatCard label="Low Attendance" value={lowAttendanceStudents.length} icon={<AlertTriangle size={24} color="#e11d48" />} iconBg="bg-rose-100" delay={2} />
         <StatCard label="Leaves Left" value={remainingLeaveDays} suffix={`/ ${maxLeaveDays}`} icon={<Clock size={24} color="#9333ea" />} iconBg="bg-purple-100" delay={3} />
       </div>
+
+      {/* Teacher Self-Attendance */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} style={{ ...cardStyle, padding: 24, marginBottom: 32 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <CalendarCheck size={20} color="#4f46e5" />
+            </div>
+            <div>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: '#111827' }}>My Attendance</h3>
+              <p style={{ fontSize: 12, color: '#6b7280' }}>Mark your attendance for today — {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
+            </div>
+          </div>
+          {myAttendance && (
+            <span style={{
+              padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
+              backgroundColor: myAttendance === 'Present' ? '#ecfdf5' : myAttendance === 'Absent' ? '#fff1f2' : '#fff7ed',
+              color: myAttendance === 'Present' ? '#059669' : myAttendance === 'Absent' ? '#e11d48' : '#d97706',
+              border: `1px solid ${myAttendance === 'Present' ? '#bbf7d0' : myAttendance === 'Absent' ? '#fecdd3' : '#fed7aa'}`,
+            }}>
+              {myAttendance === 'Present' ? '✓ Present' : myAttendance === 'Absent' ? '✗ Absent' : '⏰ Late'}
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          {([
+            { status: 'Present' as const, label: 'Present', icon: '✓', bg: '#ecfdf5', border: '#bbf7d0', text: '#059669', activeBg: '#059669', activeText: '#fff' },
+            { status: 'Late' as const, label: 'Late', icon: '⏰', bg: '#fff7ed', border: '#fed7aa', text: '#d97706', activeBg: '#d97706', activeText: '#fff' },
+            { status: 'Absent' as const, label: 'Absent', icon: '✗', bg: '#fff1f2', border: '#fecdd3', text: '#e11d48', activeBg: '#e11d48', activeText: '#fff' },
+          ]).map((opt) => {
+            const isActive = myAttendance === opt.status;
+            return (
+              <button
+                key={opt.status}
+                onClick={() => markMyAttendance(opt.status)}
+                disabled={attLoading || (myAttendance !== null && isActive)}
+                style={{
+                  flex: 1, padding: '14px 20px', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  border: `2px solid ${isActive ? opt.activeBg : opt.border}`,
+                  backgroundColor: isActive ? opt.activeBg : opt.bg,
+                  color: isActive ? opt.activeText : opt.text,
+                  opacity: attLoading ? 0.6 : 1,
+                  transition: 'all 0.15s',
+                }}
+              >
+                {opt.icon} {opt.label}
+              </button>
+            );
+          })}
+        </div>
+        {myAttendance && (
+          <p style={{ fontSize: 12, color: '#6b7280', marginTop: 12, textAlign: 'center' }}>
+            Your attendance for today has been recorded as <strong>{myAttendance}</strong>.
+          </p>
+        )}
+      </motion.div>
 
       <div className="responsive-split" style={{ display: 'grid', gap: 24, marginBottom: 32 }}>
         <div style={{ ...cardStyle, padding: 28 }}>

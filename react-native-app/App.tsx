@@ -20,7 +20,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { getCurrentProfileUser, loginWithPassword, logoutSupabase } from './src/services/authService';
-import { createNotifications, saveAttendanceRecords, hasAttendanceForDate, getAttendanceForDate, getAttendanceByDateRange } from './src/services/schoolDataService';
+import { createNotifications, saveAttendanceRecords, hasAttendanceForDate, getAttendanceForDate, getAttendanceByDateRange, getTeacherAttendance, saveTeacherAttendance } from './src/services/schoolDataService';
 import { deleteStudent, ensureParentCredentials, getStudents, saveStudent } from './src/services/studentService';
 import {
   getAnnouncements,
@@ -787,6 +787,8 @@ function DashboardScreen({ user, navigate, students, leaveRecords, sessionNotifi
   const [presentStudents, setPresentStudents] = useState(0);
   const [presentTeachers, setPresentTeachers] = useState(0);
   const [totalTeachers, setTotalTeachers] = useState(0);
+  const [myAttendance, setMyAttendance] = useState<'Present' | 'Absent' | 'Late' | null>(null);
+  const [attLoading, setAttLoading] = useState(false);
 
   useEffect(() => {
     if (user.role !== 'admin') return;
@@ -807,6 +809,30 @@ function DashboardScreen({ user, navigate, students, leaveRecords, sessionNotifi
     }
     loadTodayAttendance();
   }, [user.role]);
+
+  useEffect(() => {
+    if (user.role !== 'teacher') return;
+    async function loadMyAttendance() {
+      const today = new Date().toISOString().split('T')[0];
+      try {
+        const { data } = await getTeacherAttendance(user.id || user.email || '', today);
+        if (data) setMyAttendance(data.status);
+      } catch {}
+    }
+    loadMyAttendance();
+  }, [user.role, user.id, user.email]);
+
+  const markMyAttendance = async (status: 'Present' | 'Absent' | 'Late') => {
+    const teacherId = user.id || user.email || '';
+    if (!teacherId) return;
+    setAttLoading(true);
+    const today = new Date().toISOString().split('T')[0];
+    try {
+      await saveTeacherAttendance({ teacher_id: teacherId, date: today, status, marked_at: new Date().toISOString() });
+    } catch {}
+    setMyAttendance(status);
+    setAttLoading(false);
+  };
 
   if (user.role === 'student') {
     return (
@@ -937,6 +963,31 @@ function DashboardScreen({ user, navigate, students, leaveRecords, sessionNotifi
           ['Low Attendance', String(lowAttendanceStudents.length), 'alert-circle'],
           ['Leaves Left', `${remainingLeaveDays}/${maxLeaveDays}`, 'clock-outline'],
         ]} />
+
+        {/* Teacher Self-Attendance */}
+        <Card title="My Attendance">
+          <Text style={[styles.muted, { marginBottom: 10 }]}>Mark your attendance for today</Text>
+          {myAttendance ? (
+            <View style={{ padding: 14, borderRadius: 12, backgroundColor: myAttendance === 'Present' ? '#ecfdf5' : myAttendance === 'Absent' ? '#fff1f2' : '#fff7ed', borderWidth: 1, borderColor: myAttendance === 'Present' ? '#bbf7d0' : myAttendance === 'Absent' ? '#fecdd3' : '#fed7aa', marginBottom: 10 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: myAttendance === 'Present' ? '#059669' : myAttendance === 'Absent' ? '#e11d48' : '#d97706', textAlign: 'center' }}>
+                {myAttendance === 'Present' ? '✓ Present Today' : myAttendance === 'Absent' ? '✗ Absent Today' : '⏰ Late Today'}
+              </Text>
+              <Text style={{ fontSize: 12, color: '#6b7280', textAlign: 'center', marginTop: 4 }}>Your attendance has been recorded</Text>
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {([
+                { status: 'Present' as const, label: 'Present', bg: '#ecfdf5', border: '#bbf7d0', text: '#059669' },
+                { status: 'Late' as const, label: 'Late', bg: '#fff7ed', border: '#fed7aa', text: '#d97706' },
+                { status: 'Absent' as const, label: 'Absent', bg: '#fff1f2', border: '#fecdd3', text: '#e11d48' },
+              ]).map((opt) => (
+                <Pressable key={opt.status} onPress={() => markMyAttendance(opt.status)} disabled={attLoading} style={{ flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: opt.bg, borderWidth: 2, borderColor: opt.border, alignItems: 'center', opacity: attLoading ? 0.6 : 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: opt.text }}>{opt.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </Card>
 
         <Card title="Recent Results">
           {latestExamName ? <Text style={[styles.muted, { marginBottom: 8, fontSize: 11 }]}>{latestExamName}</Text> : null}
