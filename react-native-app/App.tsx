@@ -20,7 +20,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { getCurrentProfileUser, loginWithPassword, logoutSupabase } from './src/services/authService';
-import { createNotifications, saveAttendanceRecords, hasAttendanceForDate, getAttendanceForDate } from './src/services/schoolDataService';
+import { createNotifications, saveAttendanceRecords, hasAttendanceForDate, getAttendanceForDate, getAttendanceByDateRange } from './src/services/schoolDataService';
 import { deleteStudent, ensureParentCredentials, getStudents, saveStudent } from './src/services/studentService';
 import {
   getAnnouncements,
@@ -34,6 +34,8 @@ import {
   saveAnnouncement,
   saveExam as persistExam,
   saveFee,
+  saveHoliday,
+  deleteHoliday,
   saveLeave,
   saveMarks as persistMarks,
   saveTeacher,
@@ -319,17 +321,30 @@ function isStudentLinkedToParent(student: Student, user: Pick<User, 'email' | 'n
   );
 }
 
-const attendanceMonths = [
-  { label: 'Jan', name: 'January 2025', days: 31 },
-  { label: 'Feb', name: 'February 2025', days: 28 },
-  { label: 'Mar', name: 'March 2025', days: 31 },
-  { label: 'Apr', name: 'April 2025', days: 30 },
-  { label: 'May', name: 'May 2025', days: 31 },
-  { label: 'Jun', name: 'June 2025', days: 30 },
-];
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function buildAttendanceMonths() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const currentMonth = now.getMonth();
+  return Array.from({ length: currentMonth + 1 }, (_, i) => ({
+    label: MONTH_LABELS[i],
+    name: `${MONTH_NAMES[i]} ${year}`,
+    days: getDaysInMonth(year, i),
+    year,
+    month: i,
+  }));
+}
 
 function monthlyAttendanceFor(student: Student, monthIndex: number) {
-  return Array.from({ length: attendanceMonths[monthIndex].days }, (_, index) => {
+  const months = buildAttendanceMonths();
+  const { year, month, days } = months[monthIndex];
+  return Array.from({ length: days }, (_, index) => {
     const day = index + 1;
     const absentEvery = student.attendancePercent >= 90 ? 17 : student.attendancePercent >= 80 ? 11 : 7;
     const lateEvery = student.attendancePercent >= 90 ? 9 : 6;
@@ -366,6 +381,17 @@ function formatIsoDate(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function isFutureDay(year: number, month: number, day: number): boolean {
+  const now = new Date();
+  const date = new Date(year, month, day);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return date.getTime() > today.getTime();
+}
+
+function isSunday(year: number, month: number, day: number): boolean {
+  return new Date(year, month, day).getDay() === 0;
+}
+
 function readableDate(value: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return 'Select date';
@@ -388,11 +414,39 @@ function holidayTone(type: Holiday['type']) {
 }
 
 export default function App() {
-  return (
-    <SafeAreaProvider>
-      <AppContent />
-    </SafeAreaProvider>
-  );
+  try {
+    return (
+      <SafeAreaProvider>
+        <ErrorBoundary>
+          <AppContent />
+        </ErrorBoundary>
+      </SafeAreaProvider>
+    );
+  } catch (e: any) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: '#dc2626', marginBottom: 12 }}>Top-Level Error</Text>
+        <Text style={{ fontSize: 13, color: '#374151', textAlign: 'center' }}>{String(e?.message || e)}</Text>
+      </View>
+    );
+  }
+}
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: string | null }> {
+  state = { error: null as string | null };
+  static getDerivedStateFromError(error: any) { return { error: String(error?.message || error) }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#fff' }}>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: '#dc2626', marginBottom: 12 }}>App Error</Text>
+          <Text style={{ fontSize: 13, color: '#374151', textAlign: 'center', lineHeight: 20 }}>{this.state.error}</Text>
+          <Text style={{ fontSize: 11, color: '#9ca3af', marginTop: 16 }}>Take a screenshot and share this with the developer.</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 function AppContent() {
@@ -521,8 +575,11 @@ function AppContent() {
           <Ionicons name="menu-outline" size={24} color="#4b5563" />
         </Pressable>
         <View style={styles.topTitle}>
-          <Text style={styles.schoolText}>{user.schoolName}</Text>
-          <Text style={styles.titleText}>{screen === 'studentDetail' ? 'Student Profile' : activeTitle}</Text>
+          <Image source={require('./assets/logo-small.png')} style={{ width: 24, height: 24, borderRadius: 6 }} />
+          <View>
+            <Text style={styles.schoolText}>{user.schoolName}</Text>
+            <Text style={styles.titleText}>{screen === 'studentDetail' ? 'Student Profile' : activeTitle}</Text>
+          </View>
         </View>
         <Pressable style={styles.iconButton} onPress={() => navigate('notifications')}>
           <Ionicons name="notifications-outline" size={22} color="#4b5563" />
@@ -570,14 +627,17 @@ function AppContent() {
         <View style={styles.sheet}>
           <View style={styles.sheetGrip} />
           <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>All Modules</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Image source={require('./assets/logo-small.png')} style={{ width: 28, height: 28, borderRadius: 7 }} />
+              <Text style={styles.sheetTitle}>All Modules</Text>
+            </View>
             <Pressable style={styles.iconButtonSmall} onPress={() => setModuleOpen(false)}>
               <Ionicons name="close-outline" size={24} color="#374151" />
             </Pressable>
           </View>
-          <View style={styles.moduleGrid}>
+          <ScrollView style={styles.moduleScroll} contentContainerStyle={styles.moduleGrid} showsVerticalScrollIndicator={false}>
             {visibleNav.map((item) => (
-              <Pressable key={item.screen} style={[styles.moduleTile, screen === item.screen && styles.moduleTileActive]} onPress={() => navigate(item.screen)}>
+              <Pressable key={item.screen} style={[styles.moduleTile, screen === item.screen && styles.moduleTileActive]} onPress={() => { navigate(item.screen); setModuleOpen(false); }}>
                 <Ionicons name={item.icon as any} size={22} color={screen === item.screen ? '#4f46e5' : '#374151'} />
                 <Text style={[styles.moduleText, screen === item.screen && styles.moduleTextActive]}>{item.label}</Text>
               </Pressable>
@@ -586,7 +646,7 @@ function AppContent() {
               <Ionicons name="log-out-outline" size={22} color="#e11d48" />
               <Text style={[styles.moduleText, { color: '#e11d48' }]}>Logout</Text>
             </Pressable>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
     </SafeAreaView>
@@ -633,7 +693,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: User) => void }) {
           <View style={styles.heroGlowOne} />
           <View style={styles.heroGlowTwo} />
           <View style={styles.loginHeroTop}>
-            <View style={styles.brandMark}><Ionicons name="school-outline" size={30} color="#fff" /></View>
+            <View style={styles.brandMark}><Image source={require('./assets/logo-small.png')} style={{ width: 44, height: 44, borderRadius: 10 }} /></View>
             <View style={styles.heroPill}>
               <Ionicons name="shield-checkmark-outline" size={14} color="#c7d2fe" />
               <Text style={styles.heroPillText}>Secure portal</Text>
@@ -711,7 +771,7 @@ function RouteScreen(props: RouteProps) {
     case 'marks': return <MarksScreen user={props.user} students={props.students} />;
     case 'exams': return <ExamsScreen user={props.user} students={props.students} />;
     case 'timetable': return <TimetableScreen user={props.user} timetableData={props.timetableData} setTimetableData={props.setTimetableData} />;
-    case 'holidays': return <HolidaysScreen />;
+    case 'holidays': return <HolidaysScreen user={props.user} />;
     case 'fees': return <FeesScreen user={props.user} students={props.students} />;
     case 'leaves': return <LeavesScreen user={props.user} leaveRecords={props.leaveRecords} setLeaveRecords={props.setLeaveRecords} />;
     case 'announcements': return <AnnouncementsScreen />;
@@ -724,6 +784,29 @@ function RouteScreen(props: RouteProps) {
 
 function DashboardScreen({ user, navigate, students, leaveRecords, sessionNotifications }: RouteProps) {
   const lowAttendance = students.filter((student) => student.attendancePercent < 80).slice(0, 5);
+  const [presentStudents, setPresentStudents] = useState(0);
+  const [presentTeachers, setPresentTeachers] = useState(0);
+  const [totalTeachers, setTotalTeachers] = useState(0);
+
+  useEffect(() => {
+    if (user.role !== 'admin') return;
+    async function loadTodayAttendance() {
+      const today = new Date().toISOString().split('T')[0];
+      const [attendanceResult, teachersResult] = await Promise.all([
+        getAttendanceByDateRange(today, today),
+        getTeachers(),
+      ]);
+      if (attendanceResult.data) {
+        const present = attendanceResult.data.filter((r: any) => r.status === 'Present' || r.status === 'Late').length;
+        setPresentStudents(present);
+      }
+      if (teachersResult.data) {
+        setTotalTeachers(teachersResult.data.length);
+        setPresentTeachers(teachersResult.data.length);
+      }
+    }
+    loadTodayAttendance();
+  }, [user.role]);
 
   if (user.role === 'student') {
     return (
@@ -918,7 +1001,7 @@ function DashboardScreen({ user, navigate, students, leaveRecords, sessionNotifi
           ['Revenue This Month', currency(580000), 'cash'],
           ['Pending Collections', currency(245000), 'alert-triangle'],
           ['Overdue Fees', '5', 'alert-circle'],
-          ['Total Students', '1240', 'account-group'],
+          ['Total Students', String(students.length), 'account-group'],
         ]} />
         <Card title="Monthly Fee Collection"><FeeBars /></Card>
       </View>
@@ -929,8 +1012,10 @@ function DashboardScreen({ user, navigate, students, leaveRecords, sessionNotifi
     <View style={styles.stack}>
       <DashboardHeader title="Dashboard" subtitle="Welcome back! Here's your school overview." />
       <MetricGrid metrics={[
-        ['Total Students', '1240', 'account-group'],
-        ['Total Teachers', '86', 'school'],
+        ['Total Students', String(students.length), 'account-group'],
+        ['Total Teachers', String(totalTeachers), 'school'],
+        ['Students Today', String(presentStudents), 'account-check'],
+        ['Teachers Today', String(presentTeachers), 'school-outline'],
         ['Revenue This Month', currency(580000), 'cash'],
         ['Pending Fees', currency(245000), 'alert-triangle'],
       ]} />
@@ -1625,12 +1710,13 @@ function AdminOverviewTab({ students, onNavigate }: { students: Student[]; onNav
   const submitted = mockPendingSubmissions.filter((p) => p.status === 'Submitted').length;
   const pending = mockPendingSubmissions.filter((p) => p.status === 'Pending').length;
   const lowAtt = students.filter((s) => s.attendancePercent < 75).length;
+  const totalClasses = mockPendingSubmissions.length;
 
   return (
     <View style={styles.stack}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {[
-          { label: 'Students', value: String(students.length), icon: 'account-group' as any, color: '#4f46e5', bg: '#eef2ff' },
+          { label: 'Classes', value: String(totalClasses), icon: 'book-open-variant' as any, color: '#4f46e5', bg: '#eef2ff' },
           { label: 'Submitted', value: String(submitted), icon: 'check-circle' as any, color: '#16a34a', bg: '#f0fdf4' },
           { label: 'Pending', value: String(pending), icon: 'clock-outline' as any, color: '#ea580c', bg: '#fff7ed' },
           { label: 'Low Att.', value: String(lowAtt), icon: 'alert-circle' as any, color: '#dc2626', bg: '#fef2f2' },
@@ -1720,19 +1806,12 @@ function AdminOverviewTab({ students, onNavigate }: { students: Student[]; onNav
 
 function AdminPendingTab() {
   const pendingList = mockPendingSubmissions.filter((p) => p.status === 'Pending');
-  const submittedList = mockPendingSubmissions.filter((p) => p.status === 'Submitted');
 
   return (
     <View style={styles.stack}>
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <View style={[styles.metric, { flex: 1, borderLeftWidth: 3, borderLeftColor: '#22c55e' }]}>
-          <Text style={styles.metricLabel}>Submitted</Text>
-          <Text style={[styles.metricValue, { color: '#22c55e' }]}>{submittedList.length}</Text>
-        </View>
-        <View style={[styles.metric, { flex: 1, borderLeftWidth: 3, borderLeftColor: '#ef4444' }]}>
-          <Text style={styles.metricLabel}>Pending</Text>
-          <Text style={[styles.metricValue, { color: '#ef4444' }]}>{pendingList.length}</Text>
-        </View>
+      <View style={[styles.metric, { borderLeftWidth: 3, borderLeftColor: '#ef4444' }]}>
+        <Text style={styles.metricLabel}>Pending</Text>
+        <Text style={[styles.metricValue, { color: '#ef4444' }]}>{pendingList.length}</Text>
       </View>
       <Card title="Pending Submissions">
         {pendingList.map((cls) => (
@@ -1751,11 +1830,6 @@ function AdminPendingTab() {
               </Pressable>
             </View>
           </View>
-        ))}
-      </Card>
-      <Card title="Submitted Classes">
-        {submittedList.map((cls) => (
-          <InfoRow key={cls.classSection} title={cls.className} subtitle={`${cls.teacherName} · ${cls.submittedAt ? new Date(cls.submittedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''}`} right="Done" />
         ))}
       </Card>
     </View>
@@ -2128,15 +2202,16 @@ function AttendanceScreen({ user, students, setStudents, teachers, setSessionNot
             ['Linked Children', String(visibleStudents.length), 'account-child'],
           ]} />
           {parentChild ? (
+            <>
             <Card title="Month-wise Attendance">
               <View style={styles.monthSelector}>
-                {attendanceMonths.map((month, index) => (
+                {buildAttendanceMonths().map((month, index) => (
                   <Pressable key={month.label} style={[styles.monthChip, selectedMonth === index && styles.monthChipActive]} onPress={() => setSelectedMonth(index)}>
                     <Text style={[styles.monthChipText, selectedMonth === index && styles.monthChipTextActive]}>{month.label}</Text>
                   </Pressable>
                 ))}
               </View>
-              <InfoRow title={parentChild.name} subtitle={`${attendanceMonths[selectedMonth].name} - Class ${parentChild.class}${parentChild.section}`} right={`${parentChild.attendancePercent}%`} />
+              <InfoRow title={parentChild.name} subtitle={`${buildAttendanceMonths()[selectedMonth].name} - Class ${parentChild.class}${parentChild.section}`} right={`${parentChild.attendancePercent}%`} />
               <View style={styles.monthSummaryGrid}>
                 <View style={[styles.monthSummaryTile, styles.monthPresentTile]}><Text style={styles.monthSummaryValue}>{monthSummary.Present}</Text><Text style={styles.monthSummaryLabel}>Present</Text></View>
                 <View style={[styles.monthSummaryTile, styles.monthAbsentTile]}><Text style={styles.monthSummaryValue}>{monthSummary.Absent}</Text><Text style={styles.monthSummaryLabel}>Absent</Text></View>
@@ -2155,6 +2230,46 @@ function AttendanceScreen({ user, students, setStudents, teachers, setSessionNot
                 <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} /><Text style={styles.muted}>Late</Text></View>
               </View>
             </Card>
+            <Card title="Monthly Attendance Summary">
+              {buildAttendanceMonths().map((monthInfo, index) => {
+                const rows = monthlyAttendanceFor(parentChild, index);
+                const summary = rows.reduce((acc, row) => {
+                  if (!isFutureDay(monthInfo.year, monthInfo.month, row.day) && !isSunday(monthInfo.year, monthInfo.month, row.day)) {
+                    if (row.status === 'Present') acc.present++;
+                    else if (row.status === 'Absent') acc.absent++;
+                    else if (row.status === 'Late') acc.late++;
+                  }
+                  return acc;
+                }, { present: 0, absent: 0, late: 0 });
+                const totalDays = summary.present + summary.absent + summary.late;
+                const percentage = totalDays > 0 ? Math.round((summary.present / totalDays) * 100) : 0;
+                const isSelected = index === selectedMonth;
+                const pctColor = percentage >= 85 ? '#059669' : percentage >= 75 ? '#d97706' : '#e11d48';
+                const pctBg = percentage >= 85 ? '#ecfdf5' : percentage >= 75 ? '#fff7ed' : '#fff1f2';
+                return (
+                  <Pressable key={monthInfo.label} onPress={() => setSelectedMonth(index)} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', backgroundColor: isSelected ? '#eef2ff' : 'transparent', paddingHorizontal: 8, borderRadius: 8 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 13, fontWeight: isSelected ? '700' : '500', color: '#111827' }}>{monthInfo.name}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 12, color: '#059669', fontWeight: '600', minWidth: 20, textAlign: 'center' }}>{summary.present}</Text>
+                      <Text style={{ fontSize: 12, color: '#e11d48', fontWeight: '600', minWidth: 20, textAlign: 'center' }}>{summary.absent}</Text>
+                      <Text style={{ fontSize: 12, color: '#d97706', fontWeight: '600', minWidth: 20, textAlign: 'center' }}>{summary.late}</Text>
+                      <View style={{ minWidth: 52, paddingVertical: 3, paddingHorizontal: 8, borderRadius: 999, backgroundColor: pctBg, alignItems: 'center' }}>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: pctColor }}>{percentage}%</Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              })}
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 16, marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f3f4f6' }}>
+                <Text style={{ fontSize: 11, color: '#6b7280', fontWeight: '600' }}>P</Text>
+                <Text style={{ fontSize: 11, color: '#6b7280', fontWeight: '600' }}>A</Text>
+                <Text style={{ fontSize: 11, color: '#6b7280', fontWeight: '600' }}>L</Text>
+                <Text style={{ fontSize: 11, color: '#6b7280', fontWeight: '600', minWidth: 52, textAlign: 'center' }}>%</Text>
+              </View>
+            </Card>
+            </>
           ) : null}
         </View>
       ) : (
@@ -3487,6 +3602,7 @@ function LeavesScreen({
   const [role, setRole] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [applicationOpen, setApplicationOpen] = useState(false);
+  const [feedback, setFeedback] = useState<{ title: string; message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const canReviewTeacherLeaves = user.role === 'admin';
   const canApplyLeave = user.role === 'teacher';
   const pendingTeacherLeaves = leaveRecords.filter((leave) => leave.applicantRole === 'Teacher' && leave.status === 'Pending').length;
@@ -3497,21 +3613,21 @@ function LeavesScreen({
     const nextLeave: LeaveRecord = { ...current, status: nextStatus, remarks: nextStatus === 'Approved' ? 'Approved by admin' : 'Rejected by admin' };
     const { data, error } = await saveLeave(nextLeave);
     if (error || !data) {
-      Alert.alert('Supabase error', error?.message || 'Unable to update leave request.');
+      setFeedback({ title: 'Error', message: error?.message || 'Unable to update leave request.', type: 'error' });
       return;
     }
     setLeaveRecords((prev) => prev.map((leave) => leave.id === data.id ? data : leave));
-    Alert.alert(`Leave ${nextStatus.toLowerCase()}`, `The teacher leave request has been ${nextStatus.toLowerCase()}.`);
+    setFeedback({ title: nextStatus === 'Approved' ? 'Leave Approved' : 'Leave Rejected', message: `The teacher leave request has been ${nextStatus.toLowerCase()}.`, type: nextStatus === 'Approved' ? 'success' : 'error' });
   };
   const applyLeave = async (leave: LeaveRecord) => {
     const { data, error } = await saveLeave(leave);
     if (error || !data) {
-      Alert.alert('Supabase error', error?.message || 'Unable to submit leave request.');
+      setFeedback({ title: 'Error', message: error?.message || 'Unable to submit leave request.', type: 'error' });
       return;
     }
     setLeaveRecords((prev) => [data, ...prev]);
     setApplicationOpen(false);
-    Alert.alert('Leave submitted', 'Your leave request has been submitted for admin approval.');
+    setFeedback({ title: 'Leave Submitted', message: 'Your leave request has been submitted for admin approval.', type: 'info' });
   };
   const filtered = visibleLeaveRecords.filter((leave) => (
     (!status || leave.status === status) &&
@@ -3588,6 +3704,21 @@ function LeavesScreen({
         onClose={() => setApplicationOpen(false)}
         onSubmit={applyLeave}
       />
+      <Modal visible={!!feedback} transparent animationType="fade" onRequestClose={() => setFeedback(null)}>
+        <Pressable style={styles.modalScrim} onPress={() => setFeedback(null)} />
+        <View style={styles.feedbackOverlay}>
+          <View style={styles.feedbackCard}>
+            <View style={[styles.feedbackIconCircle, feedback?.type === 'success' && styles.feedbackIconSuccess, feedback?.type === 'error' && styles.feedbackIconError, feedback?.type === 'info' && styles.feedbackIconInfo]}>
+              <Ionicons name={feedback?.type === 'success' ? 'checkmark-circle-outline' : feedback?.type === 'error' ? 'close-circle-outline' : 'information-circle-outline'} size={36} color={feedback?.type === 'success' ? '#059669' : feedback?.type === 'error' ? '#e11d48' : '#4f46e5'} />
+            </View>
+            <Text style={styles.feedbackTitle}>{feedback?.title}</Text>
+            <Text style={styles.feedbackMessage}>{feedback?.message}</Text>
+            <Pressable style={[styles.feedbackButton, feedback?.type === 'success' && styles.feedbackButtonSuccess, feedback?.type === 'error' && styles.feedbackButtonError]} onPress={() => setFeedback(null)}>
+              <Text style={styles.feedbackButtonText}>OK</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -3672,12 +3803,15 @@ function LeaveApplicationSheet({
   );
 }
 
-function HolidaysScreen() {
+function HolidaysScreen({ user }: { user: User }) {
   const [holidayRows, setHolidayRows] = useState<Holiday[]>([]);
   const [month, setMonth] = useState('All');
   const [type, setType] = useState<'All' | Holiday['type']>('All');
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ title: '', date: '', endDate: '', type: 'National' as Holiday['type'], audience: 'All' as Holiday['audience'], note: '' });
   const months = ['All', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const types: Array<'All' | Holiday['type']> = ['All', 'National', 'Festival', 'School Event', 'Vacation', 'Optional'];
+  const isAdmin = user.role === 'admin';
   useEffect(() => {
     let active = true;
     async function loadHolidays() {
@@ -3692,6 +3826,22 @@ function HolidaysScreen() {
     loadHolidays();
     return () => { active = false; };
   }, []);
+
+  const handleSave = async () => {
+    if (!form.title || !form.date) return;
+    const newHoliday: Holiday = { id: `h${Date.now()}`, ...form };
+    const { data, error } = await saveHoliday(newHoliday);
+    if (error) { Alert.alert('Error', error.message || 'Unable to save holiday.'); return; }
+    setHolidayRows((prev) => [...prev, data]);
+    setShowForm(false);
+    setForm({ title: '', date: '', endDate: '', type: 'National', audience: 'All', note: '' });
+  };
+
+  const handleDelete = async (id: string) => {
+    const { error } = await deleteHoliday(id);
+    if (error) { Alert.alert('Error', error.message || 'Unable to delete holiday.'); return; }
+    setHolidayRows((prev) => prev.filter((h) => h.id !== id));
+  };
   const sorted = [...holidayRows].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const filtered = sorted.filter((holiday) => {
     const holidayMonth = new Date(holiday.date).getMonth() + 1;
@@ -3705,7 +3855,14 @@ function HolidaysScreen() {
 
   return (
     <View style={styles.stack}>
-      <DashboardHeader title="Holidays" subtitle="School holidays and vacation calendar" />
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <DashboardHeader title="Holidays" subtitle="School holidays and vacation calendar" />
+        {isAdmin && (
+          <Pressable style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#4f46e5', alignItems: 'center', justifyContent: 'center' }} onPress={() => setShowForm(true)}>
+            <Ionicons name="add" size={22} color="#fff" />
+          </Pressable>
+        )}
+      </View>
       <MetricGrid metrics={[
         ['Holidays', String(filtered.length), 'calendar-month'],
         ['Total Days', String(totalDays), 'clock-outline'],
@@ -3766,7 +3923,14 @@ function HolidaysScreen() {
               <Text style={styles.holidayNote}>{holiday.note}</Text>
               <View style={styles.holidayFooter}>
                 <Text style={styles.muted}>{holiday.audience}</Text>
-                <Text style={styles.infoRight}>{holidayDays(holiday)} day{holidayDays(holiday) > 1 ? 's' : ''}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={styles.infoRight}>{holidayDays(holiday)} day{holidayDays(holiday) > 1 ? 's' : ''}</Text>
+                  {isAdmin && (
+                    <Pressable onPress={() => handleDelete(holiday.id)} style={{ padding: 4 }}>
+                      <Ionicons name="trash-outline" size={16} color="#dc2626" />
+                    </Pressable>
+                  )}
+                </View>
               </View>
             </View>
           </View>
@@ -3776,6 +3940,62 @@ function HolidaysScreen() {
       {!filtered.length ? (
         <Card title="No holidays"><Text style={styles.muted}>No holidays match the selected filters.</Text></Card>
       ) : null}
+
+      <Modal visible={showForm} transparent animationType="slide" onRequestClose={() => setShowForm(false)}>
+        <Pressable style={styles.modalScrim} onPress={() => setShowForm(false)} />
+        <View style={styles.sheet}>
+          <View style={styles.sheetGrip} />
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>Add Holiday</Text>
+            <Pressable style={styles.iconButtonSmall} onPress={() => setShowForm(false)}>
+              <Ionicons name="close-outline" size={24} color="#374151" />
+            </Pressable>
+          </View>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 14, paddingBottom: 20 }}>
+            <View>
+              <Text style={styles.label}>Title *</Text>
+              <TextInput value={form.title} onChangeText={(t) => setForm({ ...form, title: t })} placeholder="e.g. Republic Day" style={styles.input} />
+            </View>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Date *</Text>
+                <TextInput value={form.date} onChangeText={(t) => setForm({ ...form, date: t })} placeholder="YYYY-MM-DD" style={styles.input} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>End Date</Text>
+                <TextInput value={form.endDate} onChangeText={(t) => setForm({ ...form, endDate: t })} placeholder="YYYY-MM-DD" style={styles.input} />
+              </View>
+            </View>
+            <View>
+              <Text style={styles.label}>Type</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {['National', 'Festival', 'School Event', 'Vacation', 'Optional'].map((t) => (
+                  <Pressable key={t} style={[styles.chip, form.type === t && styles.chipActive]} onPress={() => setForm({ ...form, type: t as Holiday['type'] })}>
+                    <Text style={[styles.chipText, form.type === t && styles.chipTextActive]}>{t}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+            <View>
+              <Text style={styles.label}>Audience</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {['All', 'Students', 'Teachers', 'Staff'].map((a) => (
+                  <Pressable key={a} style={[styles.chip, form.audience === a && styles.chipActive]} onPress={() => setForm({ ...form, audience: a as Holiday['audience'] })}>
+                    <Text style={[styles.chipText, form.audience === a && styles.chipTextActive]}>{a}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+            <View>
+              <Text style={styles.label}>Note</Text>
+              <TextInput value={form.note} onChangeText={(t) => setForm({ ...form, note: t })} placeholder="Optional note" multiline numberOfLines={3} style={[styles.input, { minHeight: 72, textAlignVertical: 'top' }]} />
+            </View>
+            <Pressable style={[styles.primaryButton, { opacity: !form.title || !form.date ? 0.5 : 1 }]} onPress={handleSave} disabled={!form.title || !form.date}>
+              <Text style={styles.primaryButtonText}>Save Holiday</Text>
+            </Pressable>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -4295,7 +4515,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
-  topTitle: { flex: 1 },
+  topTitle: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   schoolText: { fontSize: 12, color: '#6b7280' },
   titleText: { fontSize: 20, fontWeight: '700', color: '#111827' },
   iconButton: {
@@ -4585,6 +4805,18 @@ const styles = StyleSheet.create({
   leaveRejectButton: { backgroundColor: '#fff1f2', borderColor: '#fecdd3' },
   leaveApproveText: { color: '#059669', fontSize: 13, fontWeight: '800' },
   leaveRejectText: { color: '#e11d48', fontSize: 13, fontWeight: '800' },
+  feedbackOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  feedbackCard: { backgroundColor: '#fff', borderRadius: 24, padding: 32, alignItems: 'center', width: '100%', maxWidth: 320, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 12 },
+  feedbackIconCircle: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  feedbackIconSuccess: { backgroundColor: '#ecfdf5' },
+  feedbackIconError: { backgroundColor: '#fff1f2' },
+  feedbackIconInfo: { backgroundColor: '#eef2ff' },
+  feedbackTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 8, textAlign: 'center' },
+  feedbackMessage: { fontSize: 14, color: '#6b7280', textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  feedbackButton: { width: '100%', paddingVertical: 14, borderRadius: 14, alignItems: 'center', backgroundColor: '#4f46e5' },
+  feedbackButtonSuccess: { backgroundColor: '#059669' },
+  feedbackButtonError: { backgroundColor: '#e11d48' },
+  feedbackButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   searchRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   searchBox: { flex: 1, minHeight: 48, borderRadius: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8 },
   searchInput: { flex: 1, color: '#111827' },
@@ -4671,13 +4903,14 @@ const styles = StyleSheet.create({
   progressCardHero: { borderRadius: 20, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#eef2ff', padding: 16, alignItems: 'center' },
   documentsEmpty: { minHeight: 150, alignItems: 'center', justifyContent: 'center', gap: 8 },
   modalScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(17,24,39,0.48)' },
-  sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: '#fff', padding: 16, paddingBottom: 28, maxHeight: '82%' },
+  sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '90%', borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: '#fff', padding: 16, paddingBottom: 28 },
   sheetGrip: { width: 44, height: 5, borderRadius: 999, backgroundColor: '#cbd5e1', alignSelf: 'center', marginBottom: 12 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   sheetTitle: { color: '#111827', fontSize: 18, fontWeight: '800' },
   formScroll: { gap: 10, paddingBottom: 12 },
-  moduleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  moduleTile: { width: '48.5%', minHeight: 82, borderRadius: 18, backgroundColor: '#fff', borderWidth: 1, borderColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  moduleScroll: { flex: 1 },
+  moduleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingTop: 4, paddingBottom: 20 },
+  moduleTile: { width: '48.5%', minHeight: 72, borderRadius: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center', gap: 6 },
   moduleTileActive: { backgroundColor: '#eef2ff', borderColor: '#c7d2fe' },
   moduleText: { color: '#374151', fontWeight: '700', fontSize: 12 },
   moduleTextActive: { color: '#4f46e5' },

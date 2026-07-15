@@ -566,6 +566,56 @@ export function AttendancePage() {
               </div>
             )}
 
+            {isParent && parentChild && (
+              <div style={{ ...cs, padding: 20, marginBottom: 24 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 16 }}>Monthly Attendance Summary</h3>
+                <div className="responsive-table-wrap">
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
+                        <th style={{ textAlign: 'left', padding: '10px 12px', fontWeight: 600, color: '#6b7280' }}>Month</th>
+                        <th style={{ textAlign: 'center', padding: '10px 12px', fontWeight: 600, color: '#6b7280' }}>Present</th>
+                        <th style={{ textAlign: 'center', padding: '10px 12px', fontWeight: 600, color: '#6b7280' }}>Absent</th>
+                        <th style={{ textAlign: 'center', padding: '10px 12px', fontWeight: 600, color: '#6b7280' }}>Late</th>
+                        <th style={{ textAlign: 'center', padding: '10px 12px', fontWeight: 600, color: '#6b7280' }}>Total Days</th>
+                        <th style={{ textAlign: 'center', padding: '10px 12px', fontWeight: 600, color: '#6b7280' }}>Attendance %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {buildAttendanceMonths().map((monthInfo, index) => {
+                        const rows = monthlyAttendanceFor(parentChild, index);
+                        const summary = rows.reduce((acc, row) => {
+                          if (!isFutureDay(monthInfo.year, monthInfo.month, row.day) && !isSunday(monthInfo.year, monthInfo.month, row.day)) {
+                            if (row.status === 'Present') acc.present++;
+                            else if (row.status === 'Absent') acc.absent++;
+                            else if (row.status === 'Late') acc.late++;
+                          }
+                          return acc;
+                        }, { present: 0, absent: 0, late: 0 });
+                        const totalDays = summary.present + summary.absent + summary.late;
+                        const percentage = totalDays > 0 ? Math.round((summary.present / totalDays) * 100) : 0;
+                        const isSelected = index === selectedMonth;
+                        return (
+                          <tr key={monthInfo.label} style={{ borderBottom: '1px solid #f9fafb', backgroundColor: isSelected ? '#eef2ff' : 'transparent', cursor: 'pointer' }} onClick={() => setSelectedMonth(index)}>
+                            <td style={{ padding: '10px 12px', fontWeight: isSelected ? 700 : 500, color: '#111827' }}>{monthInfo.name}</td>
+                            <td style={{ padding: '10px 12px', textAlign: 'center', color: '#059669', fontWeight: 600 }}>{summary.present}</td>
+                            <td style={{ padding: '10px 12px', textAlign: 'center', color: '#e11d48', fontWeight: 600 }}>{summary.absent}</td>
+                            <td style={{ padding: '10px 12px', textAlign: 'center', color: '#d97706', fontWeight: 600 }}>{summary.late}</td>
+                            <td style={{ padding: '10px 12px', textAlign: 'center', color: '#374151', fontWeight: 600 }}>{totalDays}</td>
+                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                              <span style={{ display: 'inline-block', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700, backgroundColor: percentage >= 85 ? '#ecfdf5' : percentage >= 75 ? '#fff7ed' : '#fff1f2', color: percentage >= 85 ? '#059669' : percentage >= 75 ? '#d97706' : '#e11d48' }}>
+                                {percentage}%
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {selectedStudent ? (
               <div>
                 <button onClick={() => { setSelectedStudent(null); setStudentMonthRecords(null); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 13, fontWeight: 500, color: '#4f46e5', backgroundColor: '#eef2ff', borderRadius: 8, border: 'none', cursor: 'pointer', marginBottom: 16 }}>

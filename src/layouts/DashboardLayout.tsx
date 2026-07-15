@@ -137,9 +137,7 @@ export function DashboardLayout() {
       >
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)', minHeight: 64 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <GraduationCap size={20} color="white" />
-          </div>
+          <img src="/logo.png" alt="Logo" style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, objectFit: 'contain' }} />
           {(isMobile || !collapsed) && (
             <div style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}>
               <div style={{ fontSize: 14, fontWeight: 700 }}>Sunrise Public</div>

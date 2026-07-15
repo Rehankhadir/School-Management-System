@@ -5,16 +5,30 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#4f46e5"
+    },
+    "icon": "./assets/icon.png",
     "android": {
       "package": "com.sunrise.school",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#4f46e5"
       }
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.sunrise.school"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0206774a-51f3-405d-83b0-43b51c482f55"
+      }
     }
   }
 }

@@ -15,6 +15,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { monthlyFeeCollection, weeklyAttendance, announcements, marks, fees, notifications, leaves, exams } from '@/data/mockData';
 import { useNavigate } from 'react-router-dom';
 import { getTeachers, getLeaves, getMarks, getTimetable, getExams } from '@/services/schoolModulesService';
+import { getAttendanceByDateRange } from '@/services/schoolDataService';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
@@ -50,16 +51,40 @@ function AdminDashboard() {
   const navigate = useNavigate();
   const lowAttendance = students.filter((s) => s.attendancePercent < 80).slice(0, 5);
   const recentAnnouncements = announcements.slice(0, 4);
+  const [presentStudents, setPresentStudents] = useState(0);
+  const [presentTeachers, setPresentTeachers] = useState(0);
+  const [totalTeachers, setTotalTeachers] = useState(0);
+
+  useEffect(() => {
+    async function loadTodayAttendance() {
+      const today = new Date().toISOString().split('T')[0];
+      const [attendanceResult, teachersResult] = await Promise.all([
+        getAttendanceByDateRange(today, today),
+        getTeachers(),
+      ]);
+      if (attendanceResult.data) {
+        const present = attendanceResult.data.filter((r: any) => r.status === 'Present' || r.status === 'Late').length;
+        setPresentStudents(present);
+      }
+      if (teachersResult.data) {
+        setTotalTeachers(teachersResult.data.length);
+        setPresentTeachers(teachersResult.data.length);
+      }
+    }
+    loadTodayAttendance();
+  }, []);
 
   return (
     <>
       <PageHeader title="Dashboard" subtitle="Welcome back! Here's your school overview." />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
-        <StatCard label="Total Students" value={1240} icon={<Users size={24} color="#4f46e5" />} iconBg="bg-indigo-100" trend={{ value: 12, isUp: true }} delay={0} />
-        <StatCard label="Total Teachers" value={86} icon={<GraduationCap size={24} color="#059669" />} iconBg="bg-emerald-100" trend={{ value: 4, isUp: true }} delay={1} />
-        <StatCard label="Revenue This Month" value={580000} prefix="₹" icon={<DollarSign size={24} color="#d97706" />} iconBg="bg-amber-100" trend={{ value: 8, isUp: true }} delay={2} />
-        <StatCard label="Pending Fees" value={245000} prefix="₹" icon={<AlertTriangle size={24} color="#e11d48" />} iconBg="bg-rose-100" trend={{ value: 3, isUp: false }} delay={3} />
+      <div className="responsive-grid-3" style={{ display: 'grid', gap: 16, marginBottom: 24 }}>
+        <StatCard label="Total Students" value={students.length} icon={<Users size={24} color="#4f46e5" />} iconBg="bg-indigo-100" delay={0} />
+        <StatCard label="Total Teachers" value={totalTeachers} icon={<GraduationCap size={24} color="#059669" />} iconBg="bg-emerald-100" delay={1} />
+        <StatCard label="Students Present Today" value={presentStudents} icon={<CalendarCheck size={24} color="#10b981" />} iconBg="bg-green-100" delay={2} />
+        <StatCard label="Teachers Present Today" value={presentTeachers} icon={<BookOpen size={24} color="#8b5cf6" />} iconBg="bg-purple-100" delay={3} />
+        <StatCard label="Revenue This Month" value={580000} prefix="₹" icon={<DollarSign size={24} color="#d97706" />} iconBg="bg-amber-100" delay={4} />
+        <StatCard label="Pending Fees" value={245000} prefix="₹" icon={<AlertTriangle size={24} color="#e11d48" />} iconBg="bg-rose-100" delay={5} />
       </div>
 
       <div className="responsive-chart-grid" style={{ display: 'grid', gap: 24, marginBottom: 24 }}>

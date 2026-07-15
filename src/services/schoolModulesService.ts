@@ -329,3 +329,24 @@ export async function saveMarks(rows: MarkEntry[]): Promise<Result<MarkEntry[]>>
   const { data, error } = await table('marks').upsert(payload, { onConflict: 'student_id,exam,subject' }).select();
   return { data: error ? [] : (data || []).map(markFromRow), error };
 }
+
+export async function saveHoliday(holiday: Holiday): Promise<Result<Holiday>> {
+  if (!supabase) return notConfigured(null as any);
+  const row = {
+    id: holiday.id,
+    title: holiday.title,
+    date: holiday.date,
+    end_date: holiday.endDate || null,
+    type: holiday.type,
+    audience: holiday.audience,
+    note: holiday.note,
+  };
+  const { data, error } = await table('holidays').upsert(row, { onConflict: 'id' }).select();
+  return { data: error ? null : holidayFromRow(data?.[0]), error };
+}
+
+export async function deleteHoliday(id: string): Promise<{ error: any }> {
+  if (!supabase) return { error: null };
+  const { error } = await table('holidays').delete().eq('id', id);
+  return { error };
+}

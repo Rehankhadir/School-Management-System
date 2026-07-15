@@ -31,6 +31,7 @@ type ReportFilters = {
   leaveStatus: string;
   leaveType: string;
   applicantRole: string;
+  studentId: string;
 };
 
 const defaultFilters: ReportFilters = {
@@ -43,6 +44,7 @@ const defaultFilters: ReportFilters = {
   leaveStatus: '',
   leaveType: '',
   applicantRole: '',
+  studentId: '',
 };
 
 function attendanceMatches(value: number, range: string) {
@@ -55,20 +57,21 @@ function attendanceMatches(value: number, range: string) {
 function getReportRows(selected: string | null, filters: ReportFilters, students: any[]) {
   const filteredStudents = students.filter((student) => (
     (!filters.class || student.class === filters.class) &&
-    (!filters.section || student.section === filters.section)
+    (!filters.section || student.section === filters.section) &&
+    (!filters.studentId || student.id === filters.studentId)
   ));
 
   if (selected === 'fee') {
     return fees
       .map((fee) => ({ fee, student: students.find((item) => item.id === fee.studentId) }))
-      .filter(({ fee, student }) => student && (!filters.class || student.class === filters.class) && (!filters.section || student.section === filters.section) && (!filters.feeStatus || fee.status === filters.feeStatus))
+      .filter(({ fee, student }) => student && (!filters.class || student.class === filters.class) && (!filters.section || student.section === filters.section) && (!filters.feeStatus || fee.status === filters.feeStatus) && (!filters.studentId || student.id === filters.studentId))
       .map(({ fee, student }) => ({ Name: student!.name, Class: `${student!.class}-${student!.section}`, Status: fee.status, Balance: fee.balance }));
   }
 
   if (selected === 'marks') {
     return marks
       .map((mark) => ({ mark, student: students.find((item) => item.id === mark.studentId) }))
-      .filter(({ mark, student }) => student && (!filters.class || student.class === filters.class) && (!filters.section || student.section === filters.section) && (!filters.exam || mark.exam === filters.exam) && (!filters.subject || mark.subject === filters.subject))
+      .filter(({ mark, student }) => student && (!filters.class || student.class === filters.class) && (!filters.section || student.section === filters.section) && (!filters.exam || mark.exam === filters.exam) && (!filters.subject || mark.subject === filters.subject) && (!filters.studentId || student.id === filters.studentId))
       .map(({ mark, student }) => ({ Name: student!.name, Class: `${student!.class}-${student!.section}`, Exam: mark.exam, Subject: mark.subject, Score: `${mark.scored}/${mark.maxMarks}` }));
   }
 
@@ -139,8 +142,17 @@ export function ReportsPage() {
           <div style={{ padding: 24, borderBottom: '1px solid #f3f4f6', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
             {selected !== 'leave' && (
               <>
-                <div><label style={labelS}>Class</label><select value={filters.class} onChange={(e) => setFilter('class', e.target.value)} style={inputS}><option value="">All classes</option>{classOptions.map((item) => <option key={item} value={item}>Class {item}</option>)}</select></div>
-                <div><label style={labelS}>Section</label><select value={filters.section} onChange={(e) => setFilter('section', e.target.value)} style={inputS}><option value="">All sections</option>{sectionOptions.map((item) => <option key={item} value={item}>Section {item}</option>)}</select></div>
+                <div><label style={labelS}>Class</label><select value={filters.class} onChange={(e) => { setFilter('class', e.target.value); setFilter('studentId', ''); }} style={inputS}><option value="">All classes</option>{classOptions.map((item) => <option key={item} value={item}>Class {item}</option>)}</select></div>
+                <div><label style={labelS}>Section</label><select value={filters.section} onChange={(e) => { setFilter('section', e.target.value); setFilter('studentId', ''); }} style={inputS}><option value="">All sections</option>{sectionOptions.map((item) => <option key={item} value={item}>Section {item}</option>)}</select></div>
+                <div>
+                  <label style={labelS}>Student</label>
+                  <select value={filters.studentId} onChange={(e) => setFilter('studentId', e.target.value)} style={inputS}>
+                    <option value="">All students</option>
+                    {students.filter((s) => (!filters.class || s.class === filters.class) && (!filters.section || s.section === filters.section)).map((s) => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.class}-{s.section})</option>
+                    ))}
+                  </select>
+                </div>
               </>
             )}
             {selected === 'attendance' && <div><label style={labelS}>Attendance</label><select value={filters.attendanceRange} onChange={(e) => setFilter('attendanceRange', e.target.value)} style={inputS}><option value="">All attendance</option>{['Below 75%', '75% - 85%', '85% and above'].map((item) => <option key={item} value={item}>{item}</option>)}</select></div>}

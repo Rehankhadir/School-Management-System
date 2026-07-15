@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { type Holiday } from '@/data/mockData';
-import { getHolidays } from '@/services/schoolModulesService';
+import { getHolidays, saveHoliday, deleteHoliday } from '@/services/schoolModulesService';
 import { Badge } from '@/components/ui/Badge';
-import { CalendarDays, Clock, Filter, PartyPopper, Search } from 'lucide-react';
+import { CalendarDays, Clock, Filter, PartyPopper, Search, Plus, Trash2 } from 'lucide-react';
 
 const months = ['All Months', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const types: Array<'All Types' | Holiday['type']> = ['All Types', 'National', 'Festival', 'School Event', 'Vacation', 'Optional'];
@@ -35,11 +36,15 @@ function typeTone(type: Holiday['type']) {
 }
 
 export function HolidaysPage() {
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [month, setMonth] = useState('All Months');
   const [type, setType] = useState<(typeof types)[number]>('All Types');
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ title: '', date: '', endDate: '', type: 'National' as Holiday['type'], audience: 'All' as Holiday['audience'], note: '' });
 
   useEffect(() => {
     let active = true;
@@ -52,6 +57,22 @@ export function HolidaysPage() {
     load();
     return () => { active = false; };
   }, []);
+
+  const handleSave = async () => {
+    if (!form.title || !form.date) return;
+    const newHoliday: Holiday = { id: `h${Date.now()}`, ...form };
+    const { data, error } = await saveHoliday(newHoliday);
+    if (error) { setError(error.message); return; }
+    setHolidays((prev) => [...prev, data]);
+    setShowForm(false);
+    setForm({ title: '', date: '', endDate: '', type: 'National', audience: 'All', note: '' });
+  };
+
+  const handleDelete = async (id: string) => {
+    const { error } = await deleteHoliday(id);
+    if (error) { setError(error.message); return; }
+    setHolidays((prev) => prev.filter((h) => h.id !== id));
+  };
 
   const sortedHolidays = useMemo(() => [...holidays].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()), [holidays]);
   const filtered = useMemo(() => sortedHolidays.filter((holiday) => {
@@ -68,7 +89,7 @@ export function HolidaysPage() {
 
   return (
     <div>
-      <PageHeader title="Holidays" subtitle="View school holidays, vacations, and important closures" />
+      <PageHeader title="Holidays" subtitle="View school holidays, vacations, and important closures" actions={isAdmin ? <button onClick={() => setShowForm(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', backgroundColor: '#4f46e5', color: 'white', fontSize: 14, fontWeight: 500, borderRadius: 12, border: 'none', cursor: 'pointer' }}><Plus size={16} /> Add Holiday</button> : undefined} />
       {error && <div style={{ padding: 12, marginBottom: 16, borderRadius: 12, backgroundColor: '#fff1f2', color: '#be123c', fontSize: 14, border: '1px solid #fecdd3' }}>{error}</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 22 }}>
@@ -124,7 +145,10 @@ export function HolidaysPage() {
                   <div style={{ color: '#111827', fontSize: 17, fontWeight: 900 }}>{holiday.title}</div>
                   <div style={{ color: '#64748b', fontSize: 13, fontWeight: 600, marginTop: 4 }}>{formatDate(holiday.date)}{holiday.endDate ? ` - ${formatDate(holiday.endDate)}` : ''}</div>
                 </div>
-                <span style={{ color: tone.color, background: tone.bg, borderRadius: 999, padding: '6px 10px', fontSize: 12, fontWeight: 900 }}>{holiday.type}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: tone.color, background: tone.bg, borderRadius: 999, padding: '6px 10px', fontSize: 12, fontWeight: 900 }}>{holiday.type}</span>
+                  {isAdmin && <button onClick={() => handleDelete(holiday.id)} style={{ padding: 4, borderRadius: 6, border: 'none', background: '#fef2f2', color: '#dc2626', cursor: 'pointer' }}><Trash2 size={14} /></button>}
+                </div>
               </div>
               <p style={{ margin: 0, color: '#475569', fontSize: 13, lineHeight: 1.55 }}>{holiday.note}</p>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f1f5f9', paddingTop: 12 }}>
@@ -137,6 +161,55 @@ export function HolidaysPage() {
       </div>
 
       {!filtered.length && <div style={{ ...cardStyle, padding: 28, color: '#64748b', textAlign: 'center' }}>No holidays match the selected filters.</div>}
+
+      {showForm && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }} onClick={() => setShowForm(false)}>
+          <div style={{ backgroundColor: 'white', borderRadius: 16, padding: 24, width: 400, maxWidth: '90vw', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: '#111827', margin: 0 }}>Add Holiday</h3>
+              <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 20 }}>×</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 4 }}>Title *</label>
+                <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Republic Day" style={{ width: '100%', padding: '8px 12px', fontSize: 14, border: '1px solid #e5e7eb', borderRadius: 12, outline: 'none' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 4 }}>Date *</label>
+                  <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} style={{ width: '100%', padding: '8px 12px', fontSize: 14, border: '1px solid #e5e7eb', borderRadius: 12, outline: 'none' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 4 }}>End Date</label>
+                  <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} style={{ width: '100%', padding: '8px 12px', fontSize: 14, border: '1px solid #e5e7eb', borderRadius: 12, outline: 'none' }} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 4 }}>Type</label>
+                  <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as Holiday['type'] })} style={{ width: '100%', padding: '8px 12px', fontSize: 14, border: '1px solid #e5e7eb', borderRadius: 12, outline: 'none' }}>
+                    {['National', 'Festival', 'School Event', 'Vacation', 'Optional'].map((t) => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 4 }}>Audience</label>
+                  <select value={form.audience} onChange={(e) => setForm({ ...form, audience: e.target.value as Holiday['audience'] })} style={{ width: '100%', padding: '8px 12px', fontSize: 14, border: '1px solid #e5e7eb', borderRadius: 12, outline: 'none' }}>
+                    {['All', 'Students', 'Teachers', 'Staff'].map((a) => <option key={a}>{a}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 4 }}>Note</label>
+                <textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Optional note about this holiday" rows={3} style={{ width: '100%', padding: '8px 12px', fontSize: 14, border: '1px solid #e5e7eb', borderRadius: 12, outline: 'none', resize: 'vertical' }} />
+              </div>
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 4 }}>
+                <button onClick={() => setShowForm(false)} style={{ padding: '8px 16px', fontSize: 14, fontWeight: 500, color: '#374151', background: 'white', border: '1px solid #d1d5db', borderRadius: 12, cursor: 'pointer' }}>Cancel</button>
+                <button onClick={handleSave} disabled={!form.title || !form.date} style={{ padding: '8px 16px', fontSize: 14, fontWeight: 500, color: 'white', backgroundColor: '#4f46e5', border: 'none', borderRadius: 12, cursor: 'pointer', opacity: !form.title || !form.date ? 0.5 : 1 }}>Save Holiday</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

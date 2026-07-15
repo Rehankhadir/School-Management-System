@@ -88,10 +88,10 @@ export function LoginPage() {
             style={{
               width: 80, height: 80, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 32px',
-              backdropFilter: 'blur(10px)',
+              backdropFilter: 'blur(10px)', overflow: 'hidden',
             }}
           >
-            <GraduationCap size={40} color="white" />
+            <img src="/logo.png" alt="Sunrise Public School" style={{ width: 60, height: 60, objectFit: 'contain' }} />
           </motion.div>
 
           <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}

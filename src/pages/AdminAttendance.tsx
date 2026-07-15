@@ -11,7 +11,7 @@ import { motion } from 'framer-motion';
 import {
   CheckCircle, XCircle, Clock, AlertTriangle, Send, FileText,
   Search, ChevronDown, ChevronRight, MessageSquare, Phone,
-  Shield, Eye, Download, Calendar, TrendingDown, Users,
+  Shield, Eye, Download, Calendar, TrendingDown, Users, BookOpen,
   Filter, ArrowLeft, RefreshCw, Bell, UserX,
 } from 'lucide-react';
 import { isSupabaseConfigured } from '@/lib/supabase';
@@ -102,13 +102,13 @@ export function OverviewFlow({ students, today, onNavigateTab }: { students: Stu
   const computedStats = useMemo(() => {
     const submitted = mockPending.filter((p) => p.status === 'Submitted').length;
     const pending = mockPending.filter((p) => p.status === 'Pending').length;
-    const totalStudents = students.length;
+    const totalClasses = mockPending.length;
     const lowAtt = students.filter((s) => s.attendancePercent < 75).length;
-    return { ...stats, classesSubmitted: submitted, classesPending: pending, totalClasses: mockPending.length, totalStudents, lowAttendance: lowAtt };
+    return { ...stats, classesSubmitted: submitted, classesPending: pending, totalClasses, lowAttendance: lowAtt };
   }, [students, stats]);
 
   const statCards = [
-    { label: 'Total Students', value: computedStats.totalStudents, icon: <Users size={22} />, color: '#4f46e5', bg: '#eef2ff' },
+    { label: 'Total Classes', value: computedStats.totalClasses, icon: <BookOpen size={22} />, color: '#4f46e5', bg: '#eef2ff' },
     { label: 'Submitted', value: computedStats.classesSubmitted, icon: <CheckCircle size={22} />, color: '#16a34a', bg: '#f0fdf4' },
     { label: 'Pending', value: computedStats.classesPending, icon: <Clock size={22} />, color: '#ea580c', bg: '#fff7ed' },
     { label: 'Low Attendance', value: computedStats.lowAttendance, icon: <AlertTriangle size={22} />, color: '#dc2626', bg: '#fef2f2' },
@@ -283,17 +283,12 @@ export function OverviewFlow({ students, today, onNavigateTab }: { students: Stu
 
 export function PendingFlow({ students, today }: { students: Student[]; today: string }) {
   const pendingList = mockPending.filter((p) => p.status === 'Pending');
-  const submittedList = mockPending.filter((p) => p.status === 'Submitted');
   const [phoneItem, setPhoneItem] = useState<{ name: string; phone: string } | null>(null);
   const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   return (
     <div>
       <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
-        <div style={{ ...cs, padding: 20, borderLeft: '4px solid #22c55e', flex: '1 1 0', minWidth: 120 }}>
-          <div style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>Submitted</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#22c55e' }}>{submittedList.length}</div>
-        </div>
         <div style={{ ...cs, padding: 20, borderLeft: '4px solid #ef4444', flex: '1 1 0', minWidth: 120 }}>
           <div style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>Pending</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#ef4444' }}>{pendingList.length}</div>
@@ -342,21 +337,6 @@ export function PendingFlow({ students, today }: { students: Student[]; today: s
           </div>
         </div>
       )}
-
-      <div style={{ ...cs, padding: 20 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 16 }}>Submitted Classes</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
-          {submittedList.map((cls) => (
-            <div key={cls.classSection} style={{ padding: '12px 16px', borderRadius: 10, backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <CheckCircle size={16} color="#22c55e" />
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{cls.className}</div>
-                <div style={{ fontSize: 11, color: '#6b7280' }}>{cls.teacherName} &middot; {cls.submittedAt ? formatTime(cls.submittedAt) : ''}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
 
       {phoneItem && (
         <div
